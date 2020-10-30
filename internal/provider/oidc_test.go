@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/muly/go-oidc"
+	"github.com/coreos/go-oidc"
 )
 
 func TestOIDC_GetUserFromCode(t *testing.T) {

@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/muly/go-oidc"
+	"github.com/coreos/go-oidc"
 	"golang.org/x/oauth2"
 )
 
