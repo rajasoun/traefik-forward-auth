@@ -90,7 +90,7 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 				s.authRedirect(logger, w, r, p)
 			} else {
 				logger.Errorf("Invalid cookie: %v", err)
-				http.Error(w, "Not authorized", 401)
+				http.Error(w, "Not authorized", http.StatusUnauthorized)
 			}
 			return
 		}
@@ -101,7 +101,7 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 			logger.WithFields(logrus.Fields{
 				"email": email,
 			}).Errorf("Invalid email")
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -122,7 +122,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		c, err := r.Cookie(config.CSRFCookieName)
 		if err != nil {
 			logger.Warn("Missing csrf cookie")
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -130,7 +130,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		valid, providerName, redirect, err := ValidateCSRFCookie(r, c)
 		if !valid {
 			logger.Warnf("Error validating csrf cookie: %v", err)
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -138,7 +138,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		p, err := config.GetConfiguredProvider(providerName)
 		if err != nil {
 			logger.Warnf("Invalid provider in csrf cookie: %s, %v", providerName, err)
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -148,20 +148,22 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		b, err := httputil.DumpRequest(r, true)
 		if err != nil {
 			logger.Warnf("httputil.DumpRequest: %v", err)
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 		logger.Warnf("request dump: %s", string(b))
 
 		redirectURI := r.URL.Query().Get("redirect_uri")
 		if redirectURI == "" {
-			redirectURI = "https%3A%2F%2Fauth.bizapps-mock.cisco.com%2Fcallback"
+			logger.Warnf("redirect_uri missing from url : %s", r.URL)
+			http.Error(w, "Bad Request", http.StatusBadRequest)
+			return
 		}
 
 		user, err := p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI)
 		if err != nil {
 			logger.Warnf("GetUserFromCode: %v", err)
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 

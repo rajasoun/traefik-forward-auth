@@ -14,10 +14,10 @@ import (
 func TestOIDC_GetUserFromCode(t *testing.T) {
 	ms := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("Path : ", r.URL.Path)
-		if strings.Contains(r.URL.Path, "/as/token.oauth2") {
+		if strings.Contains(r.URL.Path, "/path1") {
 			w.Write([]byte(`{"access_token":"aodifuvboadifubv"}`))
 		}
-		if strings.Contains(r.URL.Path, "/idp/userinfo.openid") {
+		if strings.Contains(r.URL.Path, "/path2") {
 			w.Write([]byte(`{"sub":"user_id","email":"user@domain.com"}`))
 		}
 	}))
@@ -46,12 +46,12 @@ func TestOIDC_GetUserFromCode(t *testing.T) {
 		{
 			name: "test1",
 			fields: fields{
-				APIAccessTokenEndpoint: "http://" + ms.Listener.Addr().String() + "/as/token.oauth2",
-				APIResourceURI:         "http://" + ms.Listener.Addr().String() + "/idp/userinfo.openid",
+				APIAccessTokenEndpoint: "http://" + ms.Listener.Addr().String() + "/path1",
+				APIResourceURI:         "http://" + ms.Listener.Addr().String() + "/path2",
 			},
 			args: args{
 				code:        "9WFt1LbLRt46ISEfUGiXqVL7JE25Ee2CegwAAAEx",
-				redirectURI: "https%3A%2F%2Fauth.bizapps-mock.cisco.com%2Fcallback",
+				redirectURI: "https%3A%2F%2FredirectURI",
 			},
 			want:    User{ID: "user_id", Email: "user@domain.com"},
 			wantErr: false,
