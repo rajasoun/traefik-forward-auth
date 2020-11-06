@@ -11,17 +11,11 @@ import (
 	"github.com/coreos/go-oidc"
 )
 
+var mockServer *httptest.Server
+
 func TestOIDC_GetUserFromCode(t *testing.T) {
-	ms := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("Path : ", r.URL.Path)
-		if strings.Contains(r.URL.Path, "/path1") {
-			w.Write([]byte(`{"access_token":"aodifuvboadifubv"}`))
-		}
-		if strings.Contains(r.URL.Path, "/path2") {
-			w.Write([]byte(`{"sub":"user_id","email":"user@domain.com"}`))
-		}
-	}))
-	defer ms.Close()
+	teardownSubTest := setupSubTest(t)
+	defer teardownSubTest(t)
 	type fields struct {
 		OAuthProvider          OAuthProvider
 		IssuerURL              string
@@ -46,8 +40,8 @@ func TestOIDC_GetUserFromCode(t *testing.T) {
 		{
 			name: "test1",
 			fields: fields{
-				APIAccessTokenEndpoint: "http://" + ms.Listener.Addr().String() + "/path1",
-				APIResourceURI:         "http://" + ms.Listener.Addr().String() + "/path2",
+				APIAccessTokenEndpoint: "http://" + mockServer.Listener.Addr().String() + "/path1",
+				APIResourceURI:         "http://" + mockServer.Listener.Addr().String() + "/path2",
 			},
 			args: args{
 				code:        "9WFt1LbLRt46ISEfUGiXqVL7JE25Ee2CegwAAAEx",
@@ -81,24 +75,20 @@ func TestOIDC_GetUserFromCode(t *testing.T) {
 	}
 }
 
-//var ms *httptest.Server
+func setupSubTest(t *testing.T) func(t *testing.T) {
+	mockServer = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Path : ", r.URL.Path)
+		if strings.Contains(r.URL.Path, "/path1") {
+			w.Write([]byte(`{"access_token":"aodifuvboadifubv"}`))
+		}
+		if strings.Contains(r.URL.Path, "/path2") {
+			w.Write([]byte(`{"sub":"user_id","email":"user@domain.com"}`))
+		}
+	}))
+	return func(t *testing.T) {}
+}
 
-// func setupSubTest(t *testing.T) func(t *testing.T) {
-// 	ms = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		fmt.Println("Path : ", r.URL.Path)
-// 		if strings.Contains(r.URL.Path, "/as/token.oauth2/?code=") {
-// 			w.Write([]byte(`{"access_token":"aodifuvboadifubv"}`))
-// 		}
-// 		if strings.Contains(r.URL.Path, "/idp/userinfo.openid") {
-// 			w.Write([]byte(`{"id":"user_id","email":"user@domain.com"}`))
-// 		}
-// 	}))
-// 	defer ms.Close()
-
-// 	return func(t *testing.T) {}
-// }
-
-// func teardownSubTest(t *testing.T) func(t *testing.T) {
-// 	defer ms.Close()
-// 	return func(t *testing.T) {}
-// }
+func teardownSubTest(t *testing.T) func(t *testing.T) {
+	defer mockServer.Close()
+	return func(t *testing.T) {}
+}
