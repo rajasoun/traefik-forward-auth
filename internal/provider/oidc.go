@@ -63,7 +63,6 @@ func (o *OIDC) Setup() error {
 	})
 
 	return nil
-
 }
 
 // GetLoginURL provides the login url for the given redirect uri and state
@@ -126,7 +125,6 @@ func getAccessToken(APIAccessTokenEndpoint, code, clientID, clientSecret, author
 }
 
 func getUserInfo(APIResourceURI, accessToken string) (User, error) {
-
 	req, err := http.NewRequest("GET", APIResourceURI, nil)
 	if err != nil {
 		return User{}, fmt.Errorf("resource endpoint get request: %w", err)

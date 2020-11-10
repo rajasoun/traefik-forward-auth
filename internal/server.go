@@ -148,7 +148,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		b, err := httputil.DumpRequest(r, true)
 		if err != nil {
 			logger.Warnf("httputil.DumpRequest: %v", err)
-			http.Error(w, "Not authorized", http.StatusUnauthorized)
+			http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
 			return
 		}
 		logger.Warnf("request dump: %s", string(b))
