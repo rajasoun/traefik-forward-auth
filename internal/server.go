@@ -153,14 +153,13 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		}
 		logger.Warnf("request dump: %s", string(b))
 
-		redirectURI := r.URL.Query().Get("redirect_uri")
-		if redirectURI == "" {
-			logger.Warnf("redirect_uri missing from url : %s", r.URL)
-			http.Error(w, "Bad Request", http.StatusBadRequest)
-			return
+		redirectURI := &url.URL{
+			Scheme: r.Header.Get("X-Forwarded-Proto"),
+			Host:   r.Host,
+			Path:   config.Path,
 		}
 
-		user, err := p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI)
+		user, err := p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI.String())
 		if err != nil {
 			logger.Warnf("GetUserFromCode: %v", err)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
