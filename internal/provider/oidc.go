@@ -14,16 +14,16 @@ import (
 
 // OIDC provider
 type OIDC struct {
-	OAuthProvider
-
 	IssuerURL    string `long:"issuer-url" env:"ISSUER_URL" description:"Issuer URL"`
 	ClientID     string `long:"client-id" env:"CLIENT_ID" description:"Client ID"`
 	ClientSecret string `long:"client-secret" env:"CLIENT_SECRET" description:"Client Secret" json:"-"`
 
+	OAuthProvider
+
 	provider               *oidc.Provider
 	verifier               *oidc.IDTokenVerifier
-	APIResourceURI         string `long:"resource-uri" env:"APIResourceURI" description:"API resource uri"`
-	APIAccessTokenEndpoint string `long:"token-endpoint" env:"APIAccessTokenEndpoint" description:"API access token endpoint"`
+	APIResourceURI         string `long:"resource-uri" env:"API_RESOURCE_URI" description:"API resource uri"`
+	APIAccessTokenEndpoint string `long:"token-endpoint" env:"API_ACCESS_TOKEN_ENDPOINT" description:"API access token endpoint"`
 }
 
 // Name returns the name of the provider
@@ -161,18 +161,9 @@ func (o *OIDC) GetUser(token string) (User, error) {
 	}
 
 	// Extract custom claims
-	var claims struct {
-		ID       string `json:"sub"`
-		Email    string `json:"email"`
-		Verified bool   `json:"email_verified"`
-	}
-	if err := idToken.Claims(&claims); err != nil {
+	if err := idToken.Claims(&user); err != nil {
 		return user, err
 	}
-
-	user.ID = claims.ID
-	user.Email = claims.Email
-	user.Verified = claims.Verified
 
 	return user, nil
 }
