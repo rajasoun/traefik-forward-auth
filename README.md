@@ -31,6 +31,8 @@ OIDC Provider:
   --providers.oidc.issuer-url=                          Issuer URL [$PROVIDERS_OIDC_ISSUER_URL]
   --providers.oidc.client-id=                           Client ID [$PROVIDERS_OIDC_CLIENT_ID]
   --providers.oidc.client-secret=                       Client Secret [$PROVIDERS_OIDC_CLIENT_SECRET]
+  --providers.oidc.resource-uri=                        Optional resource indicator [$PROVIDERS_OIDC_API_RESOURCE_URI]
+  --providers.oidc.token-endpoint=                      Optional resource indicator [$PROVIDERS_OIDC_API_ACCESS_TOKEN_ENDPOINT]
   --providers.oidc.resource=                            Optional resource indicator [$PROVIDERS_OIDC_RESOURCE]
 
 Help Options:
