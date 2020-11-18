@@ -100,11 +100,11 @@ func NewConfig(args []string) (*Config, error) {
 	c.Secret = []byte(c.SecretString)
 	c.Lifetime = time.Second * time.Duration(c.LifetimeString)
 
-	sess, err := getAwsSession()
+	sess, err := getAwsSession(c.SecretMgrAccessKey, c.SecretMgrSecretKey, c.SecretMgrRegion)
 	if err != nil {
 		return nil, err
 	}
-	c.CookieHashKey, c.CookieBlockKey, err = getSecret(sess, c.SecretMgrSecretName)
+	c.CookieHashKey, c.CookieBlockKey, err = getSecret(sess, c.SecretMgrSecretName, c.SecretMgrRegion)
 	if err != nil {
 		return nil, err
 	}

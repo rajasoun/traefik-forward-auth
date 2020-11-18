@@ -10,15 +10,15 @@ import (
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 )
 
-func getAwsSession() (*session.Session, error) {
-	creds := credentials.NewStaticCredentials(config.SecretMgrAccessKey, config.SecretMgrSecretKey, "")
+func getAwsSession(secretMgrAccessKey, secretMgrSecretKey, secretMgrRegion string) (*session.Session, error) {
+	creds := credentials.NewStaticCredentials(secretMgrAccessKey, secretMgrSecretKey, "")
 
 	_, err := creds.Get()
 	if err != nil {
 		fmt.Printf("bad credentials: %s", err)
 		return nil, err
 	}
-	cfg := aws.NewConfig().WithRegion(config.SecretMgrRegion).WithCredentials(creds)
+	cfg := aws.NewConfig().WithRegion(secretMgrRegion).WithCredentials(creds)
 
 	sess, err := session.NewSession(cfg)
 	if err != nil {
@@ -28,10 +28,10 @@ func getAwsSession() (*session.Session, error) {
 	return sess, nil
 }
 
-func getSecret(sess *session.Session, secretName string) (string, string, error) {
+func getSecret(sess *session.Session, secretName, secretMgrRegion string) (string, string, error) {
 	// Create a Secrets Manager client
 	svc := secretsmanager.New(sess,
-		aws.NewConfig().WithRegion(config.SecretMgrRegion))
+		aws.NewConfig().WithRegion(secretMgrRegion))
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId:     aws.String(secretName),
 		VersionStage: aws.String("AWSCURRENT"),
