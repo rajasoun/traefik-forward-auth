@@ -186,8 +186,8 @@ func MakeCookie(r *http.Request, email string) *http.Cookie {
 
 // MakeUserCookie create's an UserInfo cookie
 func MakeUserCookie(r *http.Request, userInfo string) *http.Cookie {
-	var hashKey = []byte("8UK8GN5XFAK89UVYNKKABY3BDR4EQQ8M")
-	var blockKey = []byte("HFGGDX4RNX6SYYT3WRZXA946ZYO61J06")
+	var hashKey = []byte(config.CookieHashKey)
+	var blockKey = []byte(config.CookieBlockKey)
 	var s = securecookie.New(hashKey, blockKey)
 
 	var cookie *http.Cookie

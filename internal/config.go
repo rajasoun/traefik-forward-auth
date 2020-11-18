@@ -44,9 +44,16 @@ type Config struct {
 	Providers provider.Providers `group:"providers" namespace:"providers" env-namespace:"PROVIDERS"`
 	Rules     map[string]*Rule   `long:"rule.<name>.<param>" description:"Rule definitions, param can be: \"action\", \"rule\" or \"provider\""`
 
+	SecretMgrAccessKey  string `long:"secret-mgr-access-key" env:"AWS_ACCESS_KEY_ID" env-delim:"," description:"AWS Secret Manager Access Key"`
+	SecretMgrSecretKey  string `long:"secret-mgr-secret-key" env:"AWS_SECRET_ACCESS_KEY" env-delim:"," description:"AWS Secret Manager Secret Key"`
+	SecretMgrRegion     string `long:"secret-mgr-region" env:"REGION" env-delim:"," description:"AWS Secret Manager Region"`
+	SecretMgrSecretName string `long:"secret-mgr-secret-name" env:"SECRET_MGR_SECRET_NAME" env-delim:"," description:"AWS Secret Manager: secret name"`
+
 	// Filled during transformations
-	Secret   []byte `json:"-"`
-	Lifetime time.Duration
+	Secret         []byte `json:"-"`
+	Lifetime       time.Duration
+	CookieHashKey  string
+	CookieBlockKey string
 }
 
 // NewGlobalConfig creates a new global config, parsed from command arguments
@@ -92,6 +99,15 @@ func NewConfig(args []string) (*Config, error) {
 	}
 	c.Secret = []byte(c.SecretString)
 	c.Lifetime = time.Second * time.Duration(c.LifetimeString)
+
+	sess, err := getAwsSession()
+	if err != nil {
+		return nil, err
+	}
+	c.CookieHashKey, c.CookieBlockKey, err = getSecret(sess, c.SecretMgrSecretName)
+	if err != nil {
+		return nil, err
+	}
 
 	return c, nil
 }
