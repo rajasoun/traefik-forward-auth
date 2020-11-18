@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/securecookie"
 	"github.com/rajasoun/traefik-forward-auth/internal/provider"
 )
 
@@ -185,19 +186,31 @@ func MakeCookie(r *http.Request, email string) *http.Cookie {
 
 // MakeUserCookie create's an UserInfo cookie
 func MakeUserCookie(r *http.Request, userInfo string) *http.Cookie {
+	var hashKey = []byte("8UK8GN5XFAK89UVYNKKABY3BDR4EQQ8M")
+	var blockKey = []byte("HFGGDX4RNX6SYYT3WRZXA946ZYO61J06")
+	var s = securecookie.New(hashKey, blockKey)
+
+	var cookie *http.Cookie
 	expires := cookieExpiry()
 	mac := cookieSignature(r, userInfo, fmt.Sprintf("%d", expires.Unix()))
 	value := fmt.Sprintf("%s|%d|%s", mac, expires.Unix(), userInfo)
 
-	return &http.Cookie{
-		Name:     config.UserInfoCookie,
-		Value:    base64.StdEncoding.EncodeToString([]byte(value)),
-		Path:     "/",
-		Domain:   cookieDomain(r),
-		HttpOnly: true,
-		Secure:   !config.InsecureCookie,
-		Expires:  expires,
+	if encoded, err := s.Encode(config.UserInfoCookie, value); err == nil {
+		cookie = &http.Cookie{
+			Name:     config.UserInfoCookie,
+			Value:    encoded,
+			Path:     "/",
+			Domain:   cookieDomain(r),
+			HttpOnly: true,
+			Secure:   !config.InsecureCookie,
+			Expires:  expires,
+		}
 	}
+
+	// if err := s.Decode(config.UserInfoCookie, cookie.Value, &value); err == nil {
+	// 	fmt.Printf("\n\n INFO | The value cookie : %s \n\n", value)
+	// }
+	return cookie
 }
 
 // ClearCookie clears the auth cookie
