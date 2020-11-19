@@ -8,6 +8,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
+	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
 )
 
 func getAwsSession(secretMgrAccessKey, secretMgrSecretKey, secretMgrRegion string) (*session.Session, error) {
@@ -28,15 +29,11 @@ func getAwsSession(secretMgrAccessKey, secretMgrSecretKey, secretMgrRegion strin
 	return sess, nil
 }
 
-func getSecret(sess *session.Session, secretName, secretMgrRegion string) (string, string, error) {
-	// Create a Secrets Manager client
-	svc := secretsmanager.New(sess,
-		aws.NewConfig().WithRegion(secretMgrRegion))
+func getSecret(svc secretsmanageriface.SecretsManagerAPI, secretName string) (string, string, error) {
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId:     aws.String(secretName),
 		VersionStage: aws.String("AWSCURRENT"),
 	}
-
 	result, err := svc.GetSecretValue(input)
 	if err != nil {
 		return "", "", err

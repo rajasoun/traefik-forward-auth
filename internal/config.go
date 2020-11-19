@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/rajasoun/traefik-forward-auth/internal/provider"
 	"github.com/thomseddon/go-flags"
 )
@@ -104,7 +106,11 @@ func NewConfig(args []string) (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	c.CookieHashKey, c.CookieBlockKey, err = getSecret(sess, c.SecretMgrSecretName, c.SecretMgrRegion)
+
+	svc := secretsmanager.New(sess,
+		aws.NewConfig().WithRegion(c.SecretMgrRegion))
+
+	c.CookieHashKey, c.CookieBlockKey, err = getSecret(svc, c.SecretMgrSecretName)
 	if err != nil {
 		return nil, err
 	}
