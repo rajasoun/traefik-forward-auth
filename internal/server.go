@@ -174,7 +174,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 
 		user, err := p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI.String())
 		if err != nil {
-			logger.Warnf("GetUserFromCode: %v", err)
+			logger.Errorf("GetUserFromCode: %v", err)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
