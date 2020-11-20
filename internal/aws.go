@@ -13,17 +13,14 @@ import (
 
 func getAwsSession(secretMgrAccessKey, secretMgrSecretKey, secretMgrRegion string) (*session.Session, error) {
 	creds := credentials.NewStaticCredentials(secretMgrAccessKey, secretMgrSecretKey, "")
-
 	_, err := creds.Get()
 	if err != nil {
-		fmt.Printf("bad credentials: %s", err)
 		return nil, err
 	}
 	cfg := aws.NewConfig().WithRegion(secretMgrRegion).WithCredentials(creds)
 
 	sess, err := session.NewSession(cfg)
 	if err != nil {
-		fmt.Println("session failed:", err)
 		return nil, err
 	}
 	return sess, nil
