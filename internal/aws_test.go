@@ -36,7 +36,7 @@ func Test_getAwsSession(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "",
+			name: "test create config for session",
 			args: args{
 				secretMgrAccessKey: secretMgrAccessKey,
 				secretMgrSecretKey: secretMgrSecretKey,
