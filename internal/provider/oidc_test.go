@@ -92,3 +92,62 @@ func teardownSubTest(t *testing.T) func(t *testing.T) {
 	defer mockServer.Close()
 	return func(t *testing.T) {}
 }
+
+func TestOIDC_Setup(t *testing.T) {
+	type fields struct {
+		IssuerURL              string
+		ClientID               string
+		ClientSecret           string
+		OAuthProvider          OAuthProvider
+		provider               *oidc.Provider
+		verifier               *oidc.IDTokenVerifier
+		APIResourceURI         string
+		APIAccessTokenEndpoint string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		wantErr bool
+	}{
+		{
+			name:    "test_setup_empty",
+			fields:  fields{},
+			wantErr: true,
+		},
+		{
+			name: "test_setup_invalid",
+			fields: fields{
+				IssuerURL:    "IssuerURL",
+				ClientID:     "ClientID",
+				ClientSecret: "ClientSecret",
+			},
+			wantErr: true,
+		},
+		{
+			name: "test_setup_all_val",
+			fields: fields{
+				IssuerURL:    "https://accounts.google.com",
+				ClientID:     "ClientID",
+				ClientSecret: "ClientSecret",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			o := &OIDC{
+				IssuerURL:              tt.fields.IssuerURL,
+				ClientID:               tt.fields.ClientID,
+				ClientSecret:           tt.fields.ClientSecret,
+				OAuthProvider:          tt.fields.OAuthProvider,
+				provider:               tt.fields.provider,
+				verifier:               tt.fields.verifier,
+				APIResourceURI:         tt.fields.APIResourceURI,
+				APIAccessTokenEndpoint: tt.fields.APIAccessTokenEndpoint,
+			}
+			if err := o.Setup(); (err != nil) != tt.wantErr {
+				t.Errorf("OIDC.Setup() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
