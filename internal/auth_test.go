@@ -75,7 +75,7 @@ func compareCookie(got, want *http.Cookie) bool {
 		return false
 	}
 	value := ""
-	if err := s.Decode(userInfoCookie, got.Value, &value); err == nil && !strings.Contains(value, want.Value) {
+	if err := s.Decode(userInfoCookie, got.Value, &value); err != nil || !strings.Contains(value, want.Value) {
 		return false
 	}
 	return true
