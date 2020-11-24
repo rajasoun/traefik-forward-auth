@@ -18,7 +18,7 @@ var (
 )
 
 func TestMakeUserCookie(t *testing.T) {
-	setupSubTest(t)
+	setupTest(t)
 	type args struct {
 		r        *http.Request
 		userInfo string
@@ -81,7 +81,7 @@ func compareCookie(got, want *http.Cookie) bool {
 	return true
 }
 
-func setupSubTest(t *testing.T) func(t *testing.T) {
+func setupTest(t *testing.T) func(t *testing.T) {
 	cookieHashKey = "AMC7VVW06NF6NG1BN8WGQR4GGSHYHMKN"
 	cookieBlockKey = "R78IRDN6920MJPE2RD7MFQ9Y2GN5AKTJ"
 	userInfoCookie = "_user_info"
@@ -94,4 +94,103 @@ func setupSubTest(t *testing.T) func(t *testing.T) {
 		UserInfoCookie: userInfoCookie,
 	}
 	return func(t *testing.T) {}
+}
+
+func TestValidateCookie(t *testing.T) {
+	setupTest(t)
+	type args struct {
+		r *http.Request
+		c *http.Cookie
+	}
+	tests := []struct {
+		name    string
+		args    args
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "Invalid cookie format",
+			args: args{
+				r: req,
+				c: &http.Cookie{
+					Name:  config.UserInfoCookie,
+					Value: "xyz",
+				},
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "Invalid to decode cookie mac",
+			args: args{
+				r: req,
+				c: &http.Cookie{
+					Name:  config.UserInfoCookie,
+					Value: "abc|pqr|xyz",
+				},
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "Invalid cookie mac",
+			args: args{
+				r: req,
+				c: &http.Cookie{
+					Name:  config.UserInfoCookie,
+					Value: "YWJj|pqr|xyz",
+				},
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "Unable to parse cookie expiry",
+			args: args{
+				r: req,
+				c: &http.Cookie{
+					Name:  config.UserInfoCookie,
+					Value: "70xxALKQKacEZg7-bn6126WX5UFmt8b5o5BxlKd9uV8=|abc|pqr",
+				},
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "Cookie has expired",
+			args: args{
+				r: req,
+				c: &http.Cookie{
+					Name:  config.UserInfoCookie,
+					Value: "Pv9BtRsXs8tN9qlNsqzO0yfKKGSZBGxFaGoKIPBc4TE=|1606221263|HelloWorld",
+				},
+			},
+			want:    "",
+			wantErr: true,
+		},
+		{
+			name: "Cookie valid",
+			args: args{
+				r: req,
+				c: &http.Cookie{
+					Name:  config.UserInfoCookie,
+					Value: "29AlzD6R3GzzbgivPAt13HvQbtLxh5jA33KCGfEEW3c=|3183023056|HelloWorld",
+				},
+			},
+			want:    "HelloWorld",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ValidateCookie(tt.args.r, tt.args.c)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateCookie() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ValidateCookie() = %v, want %v", got, tt.want)
+			}
+		})
+	}
 }
