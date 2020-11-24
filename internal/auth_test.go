@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/gorilla/securecookie"
 )
@@ -30,6 +31,7 @@ func setupTest(t *testing.T) func(t *testing.T) {
 		UserInfoCookie: userInfoCookie,
 	}
 	config.Rules = make(map[string]*Rule)
+	config.Lifetime = time.Second * time.Duration(43200)
 	return func(t *testing.T) {}
 }
 func TestMakeUserCookie(t *testing.T) {
@@ -310,6 +312,124 @@ func TestValidateEmail(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := ValidateEmail(tt.args.email, tt.args.ruleName); got != tt.want {
 				t.Errorf("ValidateEmail() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMakeCookie(t *testing.T) {
+	setupTest(t)
+	type args struct {
+		r     *http.Request
+		email string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *http.Cookie
+	}{
+		{
+			name: "test MakeCookie",
+			args: args{r: req, email: "abc@domain.com"},
+			want: &http.Cookie{
+				Value: "abc@domain.com",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := MakeCookie(tt.args.r, tt.args.email); !strings.Contains(got.Value, tt.want.Value) {
+				t.Errorf("MakeCookie() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestMakeCSRFCookie(t *testing.T) {
+	setupTest(t)
+	type args struct {
+		r     *http.Request
+		nonce string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *http.Cookie
+	}{
+		{
+			name: "test MakeCSRFCookie",
+			args: args{r: req, nonce: "test_nonce"},
+			want: &http.Cookie{
+				Value:   "test_nonce",
+				Expires: time.Now().Local().Add(time.Minute * 70),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := MakeCSRFCookie(tt.args.r, tt.args.nonce); !strings.Contains(got.Value, tt.want.Value) && got.Expires.Before(tt.want.Expires) {
+				t.Errorf("MakeCSRFCookie() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestClearCookie(t *testing.T) {
+	setupTest(t)
+	type args struct {
+		r *http.Request
+	}
+	tests := []struct {
+		name string
+		args args
+		want *http.Cookie
+	}{
+		{
+			name: "test ClearCookie",
+			args: args{r: req},
+			want: &http.Cookie{
+				Expires: time.Now().Local().Add(time.Minute * -60),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ClearCookie(tt.args.r); got.Expires.Before(tt.want.Expires) {
+				t.Errorf("ClearCookie() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestClearCSRFCookie(t *testing.T) {
+	setupTest(t)
+	type args struct {
+		r *http.Request
+		c *http.Cookie
+	}
+	tests := []struct {
+		name string
+		args args
+		want *http.Cookie
+	}{
+		{
+			name: "test ClearCSRFCookie",
+			args: args{
+				r: req,
+				c: &http.Cookie{
+					Name:    config.UserInfoCookie,
+					Expires: time.Now().Local(),
+				},
+			},
+			want: &http.Cookie{
+				Expires: time.Now().Local().Add(time.Minute * -60),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ClearCSRFCookie(tt.args.r, tt.args.c); got.Expires.Before(tt.want.Expires) {
+				t.Errorf("ClearCSRFCookie() = %v, want %v", got, tt.want)
 			}
 		})
 	}
