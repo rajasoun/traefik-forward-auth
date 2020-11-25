@@ -434,3 +434,129 @@ func TestClearCSRFCookie(t *testing.T) {
 		})
 	}
 }
+
+func Test_redirectBase(t *testing.T) {
+	r, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Error("new request error", err)
+		return
+	}
+	r.Header.Add("X-Forwarded-Proto", "https")
+	r.Header.Add("X-Forwarded-Host", "traefik-fa")
+
+	type args struct {
+		r *http.Request
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "success case",
+			args: args{r: r},
+			want: "https://traefik-fa",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := redirectBase(tt.args.r); got != tt.want {
+				t.Errorf("redirectBase() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_returnUrl(t *testing.T) {
+	r, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Error("new request error", err)
+		return
+	}
+	r.Header.Add("X-Forwarded-Proto", "https")
+	r.Header.Add("X-Forwarded-Host", "traefik-fa")
+	r.Header.Add("X-Forwarded-Uri", "/fwd-uri")
+
+	type args struct {
+		r *http.Request
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "success case",
+			args: args{r: r},
+			want: "https://traefik-fa/fwd-uri",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := returnUrl(tt.args.r); got != tt.want {
+				t.Errorf("returnUrl() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_redirectUri(t *testing.T) {
+	config = &Config{}
+	config.Path = "/path123"
+	config.CookieDomains = []CookieDomain{
+		{Domain: "fa",
+			DomainLen:    1,
+			SubDomain:    "s",
+			SubDomainLen: 1,
+		},
+		{Domain: "auth123",
+			DomainLen:    1,
+			SubDomain:    "s",
+			SubDomainLen: 1,
+		},
+	}
+
+	r, err := http.NewRequest("GET", "/", nil)
+	if err != nil {
+		t.Error("new request error", err)
+		return
+	}
+	r.Header.Add("X-Forwarded-Proto", "https")
+	r.Header.Add("X-Forwarded-Host", "auth123:1234")
+	type args struct {
+		r         *http.Request
+		useDomain bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "success case: dont use auth domain",
+			args: args{r: r,
+				useDomain: false,
+			},
+			want: "https://auth123:1234/path123",
+		},
+		{
+			name: "success case: use auth domain",
+			args: args{r: r,
+				useDomain: true,
+			},
+			want: "https://auth123/path123",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.args.useDomain {
+				config.AuthHost = "auth123"
+			} else {
+				config.AuthHost = ""
+			}
+			if got := redirectUri(tt.args.r); got != tt.want {
+				t.Errorf("redirectUri() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
