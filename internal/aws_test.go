@@ -23,6 +23,8 @@ func Test_getAwsSession(t *testing.T) {
 	if err != nil {
 		fmt.Println("session failed:", err)
 	}
+	svc := secretsmanager.New(sess,
+		aws.NewConfig().WithRegion(secretMgrRegion))
 
 	type args struct {
 		secretMgrAccessKey string
@@ -32,7 +34,7 @@ func Test_getAwsSession(t *testing.T) {
 	tests := []struct {
 		name    string
 		args    args
-		want    *session.Session
+		want    *secretsmanager.SecretsManager
 		wantErr bool
 	}{
 		{
@@ -42,18 +44,20 @@ func Test_getAwsSession(t *testing.T) {
 				secretMgrSecretKey: secretMgrSecretKey,
 				secretMgrRegion:    secretMgrRegion,
 			},
-			want:    sess,
+			want:    svc,
 			wantErr: false,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := getAwsSession(tt.args.secretMgrAccessKey, tt.args.secretMgrSecretKey, tt.args.secretMgrRegion)
+			sec := secretsMgr{}
+			got, err := sec.getAwsSession(tt.args.secretMgrAccessKey, tt.args.secretMgrSecretKey, tt.args.secretMgrRegion)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getAwsSession() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got.Config, tt.want.Config) {
+			t.Log(got)
+			if !reflect.DeepEqual(got.(*secretsmanager.SecretsManager).Client.Config, tt.want.Config) {
 				t.Errorf("\n\n getAwsSession() = %+v, \n\n want %v", got, tt.want)
 			}
 		})
@@ -87,7 +91,8 @@ func Test_getSecret(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, got1, err := getSecret(tt.args.svc, tt.args.secretName)
+			sec := secretsMgr{}
+			got, got1, err := sec.getSecret(tt.args.svc, tt.args.secretName)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getSecret() error = %v, wantErr %v", err, tt.wantErr)
 				return

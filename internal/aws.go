@@ -11,7 +11,15 @@ import (
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
 )
 
-func getAwsSession(secretMgrAccessKey, secretMgrSecretKey, secretMgrRegion string) (*session.Session, error) {
+// SecretsMgr interface has the methods that are required to access secrets stored in aws
+type SecretsMgr interface {
+	getAwsSession(secretMgrAccessKey, secretMgrSecretKey, secretMgrRegion string) (secretsmanageriface.SecretsManagerAPI, error)
+	getSecret(svc secretsmanageriface.SecretsManagerAPI, secretName string) (string, string, error)
+}
+
+type secretsMgr struct{}
+
+func (secretsMgr) getAwsSession(secretMgrAccessKey, secretMgrSecretKey, secretMgrRegion string) (secretsmanageriface.SecretsManagerAPI, error) {
 	creds := credentials.NewStaticCredentials(secretMgrAccessKey, secretMgrSecretKey, "")
 	_, err := creds.Get()
 	if err != nil {
@@ -23,10 +31,14 @@ func getAwsSession(secretMgrAccessKey, secretMgrSecretKey, secretMgrRegion strin
 	if err != nil {
 		return nil, err
 	}
-	return sess, nil
+
+	svc := secretsmanager.New(sess,
+		aws.NewConfig().WithRegion(secretMgrRegion))
+
+	return svc, nil
 }
 
-func getSecret(svc secretsmanageriface.SecretsManagerAPI, secretName string) (string, string, error) {
+func (secretsMgr) getSecret(svc secretsmanageriface.SecretsManagerAPI, secretName string) (string, string, error) {
 	input := &secretsmanager.GetSecretValueInput{
 		SecretId:     aws.String(secretName),
 		VersionStage: aws.String("AWSCURRENT"),

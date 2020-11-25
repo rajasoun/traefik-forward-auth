@@ -13,8 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/rajasoun/traefik-forward-auth/internal/provider"
 	"github.com/thomseddon/go-flags"
 )
@@ -61,7 +59,8 @@ type Config struct {
 // NewGlobalConfig creates a new global config, parsed from command arguments
 func NewGlobalConfig() *Config {
 	var err error
-	config, err = NewConfig(os.Args[1:])
+	var sec secretsMgr
+	config, err = NewConfig(os.Args[1:], sec)
 	if err != nil {
 		fmt.Printf("%+v\n", err)
 		os.Exit(1)
@@ -73,7 +72,7 @@ func NewGlobalConfig() *Config {
 // TODO: move config parsing into new func "NewParsedConfig"
 
 // NewConfig parses and validates provided configuration into a config object
-func NewConfig(args []string) (*Config, error) {
+func NewConfig(args []string, sec SecretsMgr) (*Config, error) {
 	c := &Config{
 		Rules: map[string]*Rule{},
 	}
@@ -102,15 +101,12 @@ func NewConfig(args []string) (*Config, error) {
 	c.Secret = []byte(c.SecretString)
 	c.Lifetime = time.Second * time.Duration(c.LifetimeString)
 
-	sess, err := getAwsSession(c.SecretMgrAccessKey, c.SecretMgrSecretKey, c.SecretMgrRegion)
+	svc, err := sec.getAwsSession(c.SecretMgrAccessKey, c.SecretMgrSecretKey, c.SecretMgrRegion)
 	if err != nil {
 		return nil, err
 	}
 
-	svc := secretsmanager.New(sess,
-		aws.NewConfig().WithRegion(c.SecretMgrRegion))
-
-	c.CookieHashKey, c.CookieBlockKey, err = getSecret(svc, c.SecretMgrSecretName)
+	c.CookieHashKey, c.CookieBlockKey, err = sec.getSecret(svc, c.SecretMgrSecretName)
 	if err != nil {
 		return nil, err
 	}
