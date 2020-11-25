@@ -1,6 +1,7 @@
 package tfa
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 	"testing"
@@ -10,11 +11,7 @@ import (
 )
 
 func TestNewConfig(t *testing.T) {
-
-	os.Setenv("PROVIDERS_OIDC_ISSUER_URL", "")
-	os.Setenv("PROVIDERS_OIDC_CLIENT_ID", "")
-	os.Setenv("PROVIDERS_OIDC_CLIENT_SECRET", "")
-
+	setup(t)
 	type args struct {
 		args []string
 	}
@@ -34,7 +31,7 @@ func TestNewConfig(t *testing.T) {
 				UserInfoCookie:  "_user_info",
 				CSRFCookieName:  "_forward_auth_csrf",
 				DefaultAction:   "auth",
-				DefaultProvider: "oidc",
+				DefaultProvider: "google",
 				LifetimeString:  43200,
 				Path:            "/_oauth",
 				Lifetime:        43200000000000,
@@ -51,11 +48,18 @@ func TestNewConfig(t *testing.T) {
 				t.Errorf("NewConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(got, tt.want) {
+			if !reflect.DeepEqual(fmt.Sprintf("%v", got), fmt.Sprintf("%v", tt.want)) {
 				t.Errorf("NewConfig() = %v, want %v", got, tt.want)
 			}
 		})
 	}
+}
+
+func setup(t *testing.T) {
+	os.Setenv("PROVIDERS_OIDC_ISSUER_URL", "")
+	os.Setenv("PROVIDERS_OIDC_CLIENT_ID", "")
+	os.Setenv("PROVIDERS_OIDC_CLIENT_SECRET", "")
+	os.Setenv("DEFAULT_PROVIDER", "google")
 }
 
 type mockSecretsMgr struct{}
