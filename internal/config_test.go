@@ -22,7 +22,7 @@ func TestNewConfig(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "empty args",
+			name: "test empty args",
 			args: args{},
 			want: &Config{
 				LogLevel:        "warn",
@@ -39,6 +39,100 @@ func TestNewConfig(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "test args",
+			args: args{[]string{
+				"--cookie-name=cookiename",
+				"--csrf-cookie-name", "\"csrfcookiename\"",
+				"--default-provider", "\"oidc\"",
+				"--rule.1.action=allow",
+				"--rule.1.rule=PathPrefix(`/one`)",
+				"--rule.1.provider=test_provider",
+				"--rule.1.whitelist=test3.com,example.org",
+				"--rule.1.domains=test2.com,example.org",
+				"--rule.two.action=auth",
+				"--rule.two.rule=\"Host(`two.com`) && Path(`/two`)\"",
+			}},
+			want: &Config{
+				LogLevel:        "warn",
+				LogFormat:       "text",
+				AuthHost:        "",
+				CookieName:      "cookiename",
+				UserInfoCookie:  "_user_info",
+				CSRFCookieName:  "csrfcookiename",
+				DefaultAction:   "auth",
+				DefaultProvider: "oidc",
+				LifetimeString:  43200,
+				LogoutRedirect:  "",
+				Path:            "/_oauth",
+				Rules: map[string]*Rule{
+					"1": {
+						Action:   "allow",
+						Rule:     "PathPrefix(`/one`)",
+						Provider: "test_provider",
+						Whitelist: []string{
+							"test3.com",
+							"example.org",
+						},
+						Domains: []string{
+							"test2.com",
+							"example.org",
+						},
+					},
+					"two": {
+						Action:   "auth",
+						Rule:     "Host(`two.com`) \u0026\u0026 Path(`/two`)",
+						Provider: "oidc",
+					},
+				},
+				Lifetime: 43200000000000,
+			},
+			wantErr: false,
+		},
+		{
+			name: "test invalid route param",
+			args: args{[]string{
+				"--cookie-name=cookiename",
+				"--csrf-cookie-name", "\"csrfcookiename\"",
+				"--default-provider", "\"oidc\"",
+				"--rule.two.invalid=auth",
+			}},
+			want:    &Config{},
+			wantErr: true,
+		},
+		{
+			name: "test no route param value",
+			args: args{[]string{
+				"--cookie-name=cookiename",
+				"--csrf-cookie-name", "\"csrfcookiename\"",
+				"--default-provider", "\"oidc\"",
+				"--rule.1.action=",
+			}},
+			want:    &Config{},
+			wantErr: true,
+		},
+		{
+			name: "test no route name",
+			args: args{[]string{
+				"--cookie-name=cookiename",
+				"--csrf-cookie-name", "\"csrfcookiename\"",
+				"--default-provider", "\"oidc\"",
+				"--rule..=abc",
+			}},
+			want:    &Config{},
+			wantErr: true,
+		},
+		{
+			name: "test unknown flag",
+			args: args{[]string{
+				"--cookie-name=cookiename",
+				"--csrf-cookie-name", "\"csrfcookiename\"",
+				"--default-provider", "\"oidc\"",
+				"--xyz..=abc",
+			}},
+			want:    &Config{},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -48,8 +142,8 @@ func TestNewConfig(t *testing.T) {
 				t.Errorf("NewConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !reflect.DeepEqual(fmt.Sprintf("%v", got), fmt.Sprintf("%v", tt.want)) {
-				t.Errorf("NewConfig() = %v, want %v", got, tt.want)
+			if !reflect.DeepEqual(fmt.Sprintf("%v", got), fmt.Sprintf("%v", tt.want)) && !tt.wantErr {
+				t.Errorf("NewConfig() = \n\n %v, \n\nwant %v", fmt.Sprintf("%v", got), tt.want)
 			}
 		})
 	}
