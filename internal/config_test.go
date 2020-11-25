@@ -8,6 +8,7 @@ import (
 
 	"github.com/aws/aws-sdk-go/service/secretsmanager"
 	"github.com/aws/aws-sdk-go/service/secretsmanager/secretsmanageriface"
+	"github.com/rajasoun/traefik-forward-auth/internal/provider"
 )
 
 func TestNewConfig(t *testing.T) {
@@ -163,4 +164,130 @@ func (mockSecretsMgr) getAwsSession(secretMgrAccessKey, secretMgrSecretKey, secr
 }
 func (mockSecretsMgr) getSecret(svc secretsmanageriface.SecretsManagerAPI, secretName string) (string, string, error) {
 	return "", "", nil
+}
+
+func TestConfig_Validate(t *testing.T) {
+	setup(t)
+	config = &Config{}
+	type fields struct {
+		DefaultProvider string
+		Providers       provider.Providers
+		Rules           map[string]*Rule
+		Secret          []byte
+	}
+	tests := []struct {
+		name   string
+		fields fields
+	}{
+		{
+			name: "test valid data",
+			fields: fields{
+				Secret:          []byte("abcd"),
+				DefaultProvider: "oidc",
+				Providers: provider.Providers{
+					OIDC: provider.OIDC{
+						IssuerURL:    "https://accounts.google.com",
+						ClientID:     "ClientID",
+						ClientSecret: "ClientSecret",
+					},
+				},
+				Rules: map[string]*Rule{
+					"test": {
+						Action:    "auth",
+						Rule:      "rule",
+						Provider:  "oidc",
+						Whitelist: []string{"abc", "xyz"},
+						Domains:   []string{"domain1", "domain2"},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Config{
+				DefaultProvider: tt.fields.DefaultProvider,
+				Providers:       tt.fields.Providers,
+				Rules:           tt.fields.Rules,
+				Secret:          tt.fields.Secret,
+			}
+			c.Validate()
+		})
+	}
+}
+
+func TestConfig_GetConfiguredProvider(t *testing.T) {
+	setup(t)
+	type fields struct {
+		DefaultProvider string
+		Rules           map[string]*Rule
+	}
+	type args struct {
+		name string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    provider.Provider
+		wantErr bool
+	}{
+		{
+			name: "test DefaultProvider",
+			args: args{
+				name: "oidc",
+			},
+			fields: fields{
+				DefaultProvider: "oidc",
+			},
+			want:    &provider.OIDC{},
+			wantErr: false,
+		},
+		{
+			name: "test rule providers",
+			args: args{
+				name: "oidc",
+			},
+			fields: fields{
+				Rules: map[string]*Rule{
+					"test": {
+						Action:    "auth",
+						Rule:      "rule",
+						Provider:  "oidc",
+						Whitelist: []string{"abc", "xyz"},
+						Domains:   []string{"domain1", "domain2"},
+					},
+				},
+			},
+			want:    &provider.OIDC{},
+			wantErr: false,
+		},
+		{
+			name: "test empty",
+			args: args{
+				name: "",
+			},
+			fields: fields{
+				DefaultProvider: "oidc",
+			},
+			want:    nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &Config{
+				DefaultProvider: tt.fields.DefaultProvider,
+				Rules:           tt.fields.Rules,
+			}
+			got, err := c.GetConfiguredProvider(tt.args.name)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Config.GetConfiguredProvider() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("Config.GetConfiguredProvider() = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
 }
