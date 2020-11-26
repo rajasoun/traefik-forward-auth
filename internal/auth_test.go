@@ -560,3 +560,86 @@ func Test_redirectUri(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateCSRFCookie(t *testing.T) {
+	setupTest(t)
+	type args struct {
+		c     *http.Cookie
+		state string
+	}
+	tests := []struct {
+		name         string
+		args         args
+		wantValid    bool
+		wantProvider string
+		wantRedirect string
+		wantErr      bool
+	}{
+		{
+			name: "Invalid Cookie",
+			args: args{
+				c: &http.Cookie{},
+			},
+			wantValid:    false,
+			wantRedirect: "",
+			wantErr:      true,
+		},
+		{
+			name: "Invalid CSRF cookie does not match state",
+			args: args{
+				c: &http.Cookie{
+					Value: "1eb323c2a633a505db17bd86d9bb4977",
+				},
+				state: "_NON_MATCHING_STRING_FOR_STATE__:Param1:Param2",
+			},
+			wantValid:    false,
+			wantProvider: "",
+			wantRedirect: "",
+			wantErr:      true,
+		},
+		{
+			name: "Invalid CSRF state format",
+			args: args{
+				c: &http.Cookie{
+					Value: "1eb323c2a633a505db17bd86d9bb4977",
+				},
+				state: "1eb323c2a633a505db17bd86d9bb4977Param1Param2",
+			},
+			wantValid:    false,
+			wantProvider: "",
+			wantRedirect: "",
+			wantErr:      true,
+		},
+		{
+			name: "Valid Cookie",
+			args: args{
+				c: &http.Cookie{
+					Value: "1eb323c2a633a505db17bd86d9bb4977",
+				},
+				state: "1eb323c2a633a505db17bd86d9bb4977:Param1:Param2",
+			},
+			wantValid:    true,
+			wantProvider: "Param1",
+			wantRedirect: "Param2",
+			wantErr:      false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotValid, gotProvider, gotRedirect, err := ValidateCSRFCookie(tt.args.c, tt.args.state)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ValidateCSRFCookie() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if gotValid != tt.wantValid {
+				t.Errorf("ValidateCSRFCookie() gotValid = %v, want %v", gotValid, tt.wantValid)
+			}
+			if gotProvider != tt.wantProvider {
+				t.Errorf("ValidateCSRFCookie() gotProvider = %v, want %v", gotProvider, tt.wantProvider)
+			}
+			if gotRedirect != tt.wantRedirect {
+				t.Errorf("ValidateCSRFCookie() gotRedirect = %v, want %v", gotRedirect, tt.wantRedirect)
+			}
+		})
+	}
+}
