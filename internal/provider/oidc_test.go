@@ -51,6 +51,19 @@ func TestOIDC_GetUserFromCode(t *testing.T) {
 			want:    User{ID: "user_id", Email: "user@domain.com"},
 			wantErr: false,
 		},
+		{
+			name: "test2",
+			fields: fields{
+				APIAccessTokenEndpoint: "http://" + mockServer.Listener.Addr().String() + "/err",
+				APIResourceURI:         "http://" + mockServer.Listener.Addr().String() + "/err",
+			},
+			args: args{
+				code:        "9WFt1LbLRt46ISEfUGiXqVL7JE25Ee2CegwAAAEx",
+				redirectURI: "https%3A%2F%2FredirectURI",
+			},
+			want:    User{},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -84,6 +97,8 @@ func setupSubTest(t *testing.T) func(t *testing.T) {
 		}
 		if strings.Contains(r.URL.Path, "/path2") {
 			w.Write([]byte(`{"sub":"user_id","email":"user@domain.com"}`))
+		}
+		if strings.Contains(r.URL.Path, "/err") {
 		}
 	}))
 	return func(t *testing.T) {}

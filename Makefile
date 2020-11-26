@@ -8,6 +8,6 @@ format:
 	gofmt -w -s internal/*.go internal/provider/*.go cmd/*.go
 
 test:
-	go test -v ./...
+	go test ./... -cover
 
 .PHONY: format test
