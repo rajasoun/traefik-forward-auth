@@ -5,12 +5,15 @@ import (
 	"reflect"
 	"testing"
 
+	"net/http/httptest"
+
 	"github.com/containous/traefik/v2/pkg/rules"
 	"github.com/sirupsen/logrus"
 )
 
 var (
 	reqSrv *http.Request
+	router *rules.Router
 )
 
 func setupTestServer(t *testing.T) func(t *testing.T) {
@@ -21,6 +24,7 @@ func setupTestServer(t *testing.T) func(t *testing.T) {
 	reqSrv.Header.Set("X-Forwarded-Uri", "uri")
 	reqSrv.Header.Set("X-Forwarded-For", "source_ip")
 	reqSrv.AddCookie(&http.Cookie{Name: "test_cookie", Value: "test_cookie"})
+	router, _ = rules.NewRouter()
 	return func(t *testing.T) {}
 }
 
@@ -137,6 +141,41 @@ func TestNewServer(t *testing.T) {
 			if got := NewServer(); got == nil {
 				t.Errorf("NewServer() = %v, want %v", got, tt.want)
 			}
+		})
+	}
+}
+
+func TestServer_RootHandler(t *testing.T) {
+	setupTestServer(t)
+	type fields struct {
+		router *rules.Router
+	}
+	type args struct {
+		w http.ResponseWriter
+		r *http.Request
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+	}{
+		{
+			name: "test RootHandler",
+			args: args{
+				r: reqSrv,
+				w: httptest.NewRecorder(),
+			},
+			fields: fields{
+				router: router,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{
+				router: tt.fields.router,
+			}
+			s.RootHandler(tt.args.w, tt.args.r)
 		})
 	}
 }
