@@ -2,13 +2,14 @@ package tfa
 
 import (
 	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
 
-	"net/http/httptest"
-
 	"github.com/containous/traefik/v2/pkg/rules"
+	"github.com/rajasoun/traefik-forward-auth/internal/provider"
 	"github.com/sirupsen/logrus"
+	"golang.org/x/oauth2"
 )
 
 var (
@@ -176,6 +177,62 @@ func TestServer_RootHandler(t *testing.T) {
 				router: tt.fields.router,
 			}
 			s.RootHandler(tt.args.w, tt.args.r)
+		})
+	}
+}
+
+func TestServer_authRedirect(t *testing.T) {
+	setupTestServer(t)
+	type fields struct {
+		router *rules.Router
+		config *Config
+	}
+	type args struct {
+		logger *logrus.Entry
+		w      http.ResponseWriter
+		r      *http.Request
+		p      provider.Provider
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+	}{
+		{
+			name: "test authRedirect",
+			fields: fields{
+				router: router,
+				config: &Config{
+					CSRFCookieName: "_forward_auth_csrf",
+				},
+			},
+			args: args{
+				r: reqSrv,
+				w: httptest.NewRecorder(),
+				logger: logrus.StandardLogger().WithFields(logrus.Fields{
+					"handler":   "handler",
+					"rule":      "rule",
+					"method":    "method",
+					"proto":     "proto",
+					"host":      "host",
+					"uri":       "uri",
+					"source_ip": "source_ip",
+				}),
+				p: &provider.OIDC{
+					OAuthProvider: provider.OAuthProvider{
+						Config: &oauth2.Config{},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := &Server{
+				router: tt.fields.router,
+			}
+			config = tt.fields.config
+			s.authRedirect(tt.args.logger, tt.args.w, tt.args.r, tt.args.p)
 		})
 	}
 }
