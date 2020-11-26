@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/coreos/go-oidc"
+	"golang.org/x/oauth2"
 )
 
 var mockServer *httptest.Server
@@ -147,6 +148,105 @@ func TestOIDC_Setup(t *testing.T) {
 			}
 			if err := o.Setup(); (err != nil) != tt.wantErr {
 				t.Errorf("OIDC.Setup() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestOIDC_Name(t *testing.T) {
+	type fields struct {
+		IssuerURL              string
+		ClientID               string
+		ClientSecret           string
+		OAuthProvider          OAuthProvider
+		provider               *oidc.Provider
+		verifier               *oidc.IDTokenVerifier
+		APIResourceURI         string
+		APIAccessTokenEndpoint string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   string
+	}{
+		{
+			name:   "test Name",
+			fields: fields{},
+			want:   "oidc",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			o := &OIDC{
+				IssuerURL:              tt.fields.IssuerURL,
+				ClientID:               tt.fields.ClientID,
+				ClientSecret:           tt.fields.ClientSecret,
+				OAuthProvider:          tt.fields.OAuthProvider,
+				provider:               tt.fields.provider,
+				verifier:               tt.fields.verifier,
+				APIResourceURI:         tt.fields.APIResourceURI,
+				APIAccessTokenEndpoint: tt.fields.APIAccessTokenEndpoint,
+			}
+			if got := o.Name(); got != tt.want {
+				t.Errorf("OIDC.Name() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestOIDC_GetLoginURL(t *testing.T) {
+	type fields struct {
+		IssuerURL              string
+		ClientID               string
+		ClientSecret           string
+		OAuthProvider          OAuthProvider
+		provider               *oidc.Provider
+		verifier               *oidc.IDTokenVerifier
+		APIResourceURI         string
+		APIAccessTokenEndpoint string
+		Resource               string
+		Config                 *oauth2.Config
+	}
+	type args struct {
+		redirectURI string
+		state       string
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		args   args
+		want   string
+	}{
+		{
+			name: "",
+			fields: fields{
+				Config:   &oauth2.Config{},
+				Resource: "Resource",
+			},
+			args: args{
+				redirectURI: "redirectURI",
+				state:       "state",
+			},
+			want: "?client_id=&redirect_uri=redirectURI&resource=Resource&response_type=code&state=state",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			o := &OIDC{
+				IssuerURL:    tt.fields.IssuerURL,
+				ClientID:     tt.fields.ClientID,
+				ClientSecret: tt.fields.ClientSecret,
+				OAuthProvider: OAuthProvider{
+					Resource: tt.fields.Resource,
+					Config:   tt.fields.Config,
+				},
+				provider:               tt.fields.provider,
+				verifier:               tt.fields.verifier,
+				APIResourceURI:         tt.fields.APIResourceURI,
+				APIAccessTokenEndpoint: tt.fields.APIAccessTokenEndpoint,
+			}
+			if got := o.GetLoginURL(tt.args.redirectURI, tt.args.state); got != tt.want {
+				t.Errorf("OIDC.GetLoginURL() = %v, want %v", got, tt.want)
 			}
 		})
 	}
