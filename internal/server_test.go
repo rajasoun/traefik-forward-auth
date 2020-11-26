@@ -73,3 +73,70 @@ func TestServer_logger(t *testing.T) {
 		})
 	}
 }
+
+func TestNewServer(t *testing.T) {
+	setupTestServer(t)
+	type fields struct {
+		config *Config
+	}
+	tests := []struct {
+		name   string
+		want   *Server
+		fields fields
+	}{
+		{
+			name: "test server config1",
+			want: &Server{},
+			fields: fields{
+				config: &Config{
+					Rules: map[string]*Rule{
+						"1": {
+							Action:   "allow",
+							Rule:     "PathPrefix(`/one`)",
+							Provider: "test_provider",
+							Whitelist: []string{
+								"test3.com",
+								"example.org",
+							},
+							Domains: []string{
+								"test2.com",
+								"example.org",
+							},
+						},
+					},
+					DefaultAction: "allow",
+				},
+			},
+		},
+		{
+			name: "test server config2",
+			want: &Server{},
+			fields: fields{
+				config: &Config{
+					Rules: map[string]*Rule{
+						"1": {
+							Rule:     "PathPrefix(`/one`)",
+							Provider: "test_provider",
+							Whitelist: []string{
+								"test3.com",
+								"example.org",
+							},
+							Domains: []string{
+								"test2.com",
+								"example.org",
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		config = tt.fields.config
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NewServer(); got == nil {
+				t.Errorf("NewServer() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
