@@ -1,7 +1,9 @@
 package tfa
 
 import (
+	"fmt"
 	"net/http"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -30,6 +32,7 @@ func setupTest(t *testing.T) func(t *testing.T) {
 		CookieBlockKey: cookieBlockKey,
 		UserInfoCookie: userInfoCookie,
 	}
+	config.CSRFCookieName = "CSRFCookieName"
 	config.Rules = make(map[string]*Rule)
 	config.Lifetime = time.Second * time.Duration(43200)
 	return func(t *testing.T) {}
@@ -639,6 +642,256 @@ func TestValidateCSRFCookie(t *testing.T) {
 			}
 			if gotRedirect != tt.wantRedirect {
 				t.Errorf("ValidateCSRFCookie() gotRedirect = %v, want %v", gotRedirect, tt.wantRedirect)
+			}
+		})
+	}
+}
+
+func TestNewCookieDomain(t *testing.T) {
+	type args struct {
+		domain string
+	}
+	tests := []struct {
+		name string
+		args args
+		want *CookieDomain
+	}{
+		{
+			name: "test NewCookieDomain",
+			args: args{
+				domain: "test domain",
+			},
+			want: &CookieDomain{
+				Domain:       "test domain",
+				DomainLen:    len("test domain"),
+				SubDomain:    fmt.Sprintf(".%s", "test domain"),
+				SubDomainLen: len("test domain") + 1,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NewCookieDomain(tt.args.domain); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewCookieDomain() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidateState(t *testing.T) {
+	type args struct {
+		state string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "test len < 34",
+			args: args{
+				state: "state",
+			},
+			wantErr: true,
+		},
+		{
+			name: "test len >= 34",
+			args: args{
+				state: "2ZLOP0L7EACHAYRHN78I09HPI492YIY733",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := ValidateState(tt.args.state); (err != nil) != tt.wantErr {
+				t.Errorf("ValidateState() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestFindCSRFCookie(t *testing.T) {
+	setupTest(t)
+	type args struct {
+		r     *http.Request
+		state string
+	}
+	tests := []struct {
+		name    string
+		args    args
+		wantC   *http.Cookie
+		wantErr bool
+	}{
+		{
+			name: "test no cookie",
+			args: args{
+				r:     req,
+				state: "2ZLOP0L7EACHAYRHN78I09HPI492YIY733",
+			},
+			wantC:   nil,
+			wantErr: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotC, err := FindCSRFCookie(tt.args.r, tt.args.state)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("FindCSRFCookie() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(gotC, tt.wantC) {
+				t.Errorf("FindCSRFCookie() = %v, want %v", gotC, tt.wantC)
+			}
+		})
+	}
+}
+
+func TestCookieDomain_UnmarshalFlag(t *testing.T) {
+	type fields struct {
+		Domain       string
+		DomainLen    int
+		SubDomain    string
+		SubDomainLen int
+	}
+	type args struct {
+		value string
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "test UnmarshalFlag",
+			args: args{
+				value: "test",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &CookieDomain{
+				Domain:       tt.fields.Domain,
+				DomainLen:    tt.fields.DomainLen,
+				SubDomain:    tt.fields.SubDomain,
+				SubDomainLen: tt.fields.SubDomainLen,
+			}
+			if err := c.UnmarshalFlag(tt.args.value); (err != nil) != tt.wantErr {
+				t.Errorf("CookieDomain.UnmarshalFlag() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCookieDomain_MarshalFlag(t *testing.T) {
+	type fields struct {
+		Domain       string
+		DomainLen    int
+		SubDomain    string
+		SubDomainLen int
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "tets MarshalFlag",
+			fields: fields{
+				Domain: "Domain",
+			},
+			want:    "Domain",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := &CookieDomain{
+				Domain:       tt.fields.Domain,
+				DomainLen:    tt.fields.DomainLen,
+				SubDomain:    tt.fields.SubDomain,
+				SubDomainLen: tt.fields.SubDomainLen,
+			}
+			got, err := c.MarshalFlag()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CookieDomain.MarshalFlag() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("CookieDomain.MarshalFlag() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCookieDomains_UnmarshalFlag(t *testing.T) {
+	type args struct {
+		value string
+	}
+	tests := []struct {
+		name    string
+		c       *CookieDomains
+		args    args
+		wantErr bool
+	}{
+		{
+			name: "test UnmarshalFlag",
+			c:    &CookieDomains{},
+			args: args{
+				value: "abc,xyz",
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.c.UnmarshalFlag(tt.args.value); (err != nil) != tt.wantErr {
+				t.Errorf("CookieDomains.UnmarshalFlag() error = %v, wantErr %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestCookieDomains_MarshalFlag(t *testing.T) {
+	tests := []struct {
+		name    string
+		c       *CookieDomains
+		want    string
+		wantErr bool
+	}{
+		{
+			name: "test MarshalFlag",
+			c: &CookieDomains{
+				CookieDomain{
+					Domain:       "abc",
+					DomainLen:    len("abc"),
+					SubDomain:    fmt.Sprintf(".%s", "abc"),
+					SubDomainLen: len("abc") + 1,
+				},
+				{
+					Domain:       "xyz",
+					DomainLen:    len("xyz"),
+					SubDomain:    fmt.Sprintf(".%s", "xyz"),
+					SubDomainLen: len("xyz") + 1,
+				},
+			},
+			want:    "abc,xyz",
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.c.MarshalFlag()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("CookieDomains.MarshalFlag() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("CookieDomains.MarshalFlag() = %v, want %v", got, tt.want)
 			}
 		})
 	}
