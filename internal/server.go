@@ -1,6 +1,7 @@
 package tfa
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -95,7 +96,7 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 				s.authRedirect(logger, w, r, p)
 			} else {
 				logger.WithField("error", err).Warn("Invalid cookie")
-				http.Error(w, "Not authorized", 401)
+				http.Error(w, "Not authorized", http.StatusUnauthorized)
 			}
 			return
 		}
@@ -104,7 +105,7 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 		valid := ValidateEmail(email, rule)
 		if !valid {
 			logger.WithField("email", email).Warn("Invalid email")
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -135,7 +136,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		c, err := FindCSRFCookie(r, state)
 		if err != nil {
 			logger.Info("Missing csrf cookie")
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -146,7 +147,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 				"error":       err,
 				"csrf_cookie": c,
 			}).Warn("Error validating csrf cookie")
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -158,32 +159,41 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 				"csrf_cookie": c,
 				"provider":    providerName,
 			}).Warn("Invalid provider in csrf cookie")
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
 		// Clear CSRF cookie
 		http.SetCookie(w, ClearCSRFCookie(r, c))
 
-		// Exchange code for token
-		token, err := p.ExchangeCode(redirectUri(r), r.URL.Query().Get("code"))
+		redirectURI := &url.URL{
+			Scheme: r.Header.Get("X-Forwarded-Proto"),
+			Host:   r.Host,
+			Path:   config.Path,
+		}
+
+		user, err := p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI.String())
 		if err != nil {
-			logger.WithField("error", err).Error("Code exchange failed with provider")
-			http.Error(w, "Service unavailable", 503)
+			logger.Errorf("GetUserFromCode: %v", err)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
-		// Get user
-		user, err := p.GetUser(token)
-		if err != nil {
-			logger.WithField("error", err).Error("Error getting user")
-			http.Error(w, "Service unavailable", 503)
-			return
-		}
+
 		logger.Debug("User ID--------------------------------------------------->" + user.ID)
 		logger.Debug("User Email--------------------------------------------------->" + user.Email)
+		logger.Debug("User FirstName--------------------------------------------------->" + user.FirstName)
+		logger.Debug("User LastName--------------------------------------------------->" + user.LastName)
 		// Generate cookie
 		http.SetCookie(w, MakeCookie(r, user.Email))
 		http.SetCookie(w, MakeCookie(r, user.ID))
+
+		cookie, err := MakeUserCookie(r, fmt.Sprintf("%s|%s|%s", user.Email, user.FirstName, user.LastName))
+		if err != nil {
+			logger.Errorf("MakeUserCookie: %v", err)
+			http.Error(w, "Not authorized", http.StatusInternalServerError)
+			return
+		}
+		http.SetCookie(w, cookie)
 
 		logger.WithFields(logrus.Fields{
 			"user_Email": user.Email,

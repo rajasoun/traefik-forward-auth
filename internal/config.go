@@ -29,6 +29,7 @@ type Config struct {
 	CookieDomains          []CookieDomain       `long:"cookie-domain" env:"COOKIE_DOMAIN" env-delim:"," description:"Domain to set auth cookie on, can be set multiple times"`
 	InsecureCookie         bool                 `long:"insecure-cookie" env:"INSECURE_COOKIE" description:"Use insecure cookies"`
 	CookieName             string               `long:"cookie-name" env:"COOKIE_NAME" default:"_forward_auth" description:"Cookie Name"`
+	UserInfoCookie         string               `long:"cookie-user" env:"COOKIE_USER" default:"_user_info" description:"User Info Cookie"`
 	CSRFCookieName         string               `long:"csrf-cookie-name" env:"CSRF_COOKIE_NAME" default:"_forward_auth_csrf" description:"CSRF Cookie Name"`
 	DefaultAction          string               `long:"default-action" env:"DEFAULT_ACTION" default:"auth" choice:"auth" choice:"allow" description:"Default action"`
 	DefaultProvider        string               `long:"default-provider" env:"DEFAULT_PROVIDER" default:"google" choice:"google" choice:"oidc" choice:"generic-oauth" description:"Default provider"`
@@ -43,15 +44,23 @@ type Config struct {
 	Providers provider.Providers `group:"providers" namespace:"providers" env-namespace:"PROVIDERS"`
 	Rules     map[string]*Rule   `long:"rule.<name>.<param>" description:"Rule definitions, param can be: \"action\", \"rule\" or \"provider\""`
 
+	SecretMgrAccessKey  string `long:"secret-mgr-access-key" env:"AWS_ACCESS_KEY_ID" env-delim:"," description:"AWS Secret Manager Access Key"`
+	SecretMgrSecretKey  string `long:"secret-mgr-secret-key" env:"AWS_SECRET_ACCESS_KEY" env-delim:"," description:"AWS Secret Manager Secret Key"`
+	SecretMgrRegion     string `long:"secret-mgr-region" env:"REGION" env-delim:"," description:"AWS Secret Manager Region"`
+	SecretMgrSecretName string `long:"secret-mgr-secret-name" env:"SECRET_MGR_SECRET_NAME" env-delim:"," description:"AWS Secret Manager: secret name"`
+
 	// Filled during transformations
-	Secret   []byte `json:"-"`
-	Lifetime time.Duration
+	Secret         []byte `json:"-"`
+	Lifetime       time.Duration
+	CookieHashKey  string
+	CookieBlockKey string
 }
 
 // NewGlobalConfig creates a new global config, parsed from command arguments
 func NewGlobalConfig() *Config {
 	var err error
-	config, err = NewConfig(os.Args[1:])
+	var sec secretsMgr
+	config, err = NewConfig(os.Args[1:], sec)
 	if err != nil {
 		fmt.Printf("%+v\n", err)
 		os.Exit(1)
@@ -63,7 +72,7 @@ func NewGlobalConfig() *Config {
 // TODO: move config parsing into new func "NewParsedConfig"
 
 // NewConfig parses and validates provided configuration into a config object
-func NewConfig(args []string) (*Config, error) {
+func NewConfig(args []string, sec SecretsMgr) (*Config, error) {
 	c := &Config{
 		Rules: map[string]*Rule{},
 	}
@@ -91,6 +100,16 @@ func NewConfig(args []string) (*Config, error) {
 	}
 	c.Secret = []byte(c.SecretString)
 	c.Lifetime = time.Second * time.Duration(c.LifetimeString)
+
+	svc, err := sec.getAwsSession(c.SecretMgrAccessKey, c.SecretMgrSecretKey, c.SecretMgrRegion)
+	if err != nil {
+		return nil, err
+	}
+
+	c.CookieHashKey, c.CookieBlockKey, err = sec.getSecret(svc, c.SecretMgrSecretName)
+	if err != nil {
+		return nil, err
+	}
 
 	return c, nil
 }
