@@ -16,6 +16,7 @@ Application Options:
   --cookie-domain=                                      Domain to set auth cookie on, can be set multiple times [$COOKIE_DOMAIN]
   --insecure-cookie                                     Use insecure cookies [$INSECURE_COOKIE]
   --cookie-name=                                        Cookie Name (default: _forward_auth) [$COOKIE_NAME]
+  --cookie-user=                                        User Info Cookie (default:_user_info) [$COOKIE_USER]
   --csrf-cookie-name=                                   CSRF Cookie Name (default: _forward_auth_csrf) [$CSRF_COOKIE_NAME]
   --default-action=[auth|allow]                         Default action (default: auth) [$DEFAULT_ACTION]
   --default-provider=[google|oidc]                      Default provider (default: google) [$DEFAULT_PROVIDER]
@@ -34,6 +35,12 @@ OIDC Provider:
   --providers.oidc.resource-uri=                        Optional resource indicator [$PROVIDERS_OIDC_API_RESOURCE_URI]
   --providers.oidc.token-endpoint=                      Optional resource indicator [$PROVIDERS_OIDC_API_ACCESS_TOKEN_ENDPOINT]
   --providers.oidc.resource=                            Optional resource indicator [$PROVIDERS_OIDC_RESOURCE]
+
+Secret Manager:
+  --secret-mgr-access-key=                              AWS Secret Manager Access Key [$AWS_ACCESS_KEY_ID]
+  --secret-mgr-secret-key=                              AWS Secret Manager Secret Key [$AWS_SECRET_ACCESS_KEY]
+  --secret-mgr-region=                                  AWS Secret Manager Region [$REGION]
+  --secret-mgr-secret-name=                             AWS Secret Manager Secret Name [$SECRET_MGR_SECRET_NAME]
 
 Help Options:
   -h, --help                                            Show this help message

@@ -174,7 +174,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 
 		user, err := p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI.String())
 		if err != nil {
-			logger.Warnf("GetUserFromCode: %v", err)
+			logger.Errorf("GetUserFromCode: %v", err)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
@@ -186,7 +186,14 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		// Generate cookie
 		http.SetCookie(w, MakeCookie(r, user.Email))
 		http.SetCookie(w, MakeCookie(r, user.ID))
-		http.SetCookie(w, MakeUserCookie(r, fmt.Sprintf("%s|%s|%s", user.Email, user.FirstName, user.LastName)))
+
+		cookie, err := MakeUserCookie(r, fmt.Sprintf("%s|%s|%s", user.Email, user.FirstName, user.LastName))
+		if err != nil {
+			logger.Errorf("MakeUserCookie: %v", err)
+			http.Error(w, "Not authorized", http.StatusInternalServerError)
+			return
+		}
+		http.SetCookie(w, cookie)
 
 		logger.WithFields(logrus.Fields{
 			"user_Email": user.Email,
