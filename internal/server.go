@@ -1,6 +1,7 @@
 package tfa
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -45,6 +46,8 @@ func (s *Server) buildRoutes() {
 	// Add logout handler
 	s.router.Handle(config.Path+"/logout", s.LogoutHandler())
 
+	s.router.Handle(config.Path+"/userinfo", s.GetUserInfoHandler())
+
 	// Add a default handler
 	if config.DefaultAction == "allow" {
 		s.router.NewRoute().Handler(s.AllowHandler("default"))
@@ -84,7 +87,7 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 		// Get auth cookie
 		c, err := r.Cookie(config.CookieName)
 		if err != nil {
-			s.authRedirect(logger, w, r, p)
+			s.authRedirect(logger, w, r, p, "")
 			return
 		}
 
@@ -93,7 +96,7 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 		if err != nil {
 			if err.Error() == "Cookie has expired" {
 				logger.Info("Cookie has expired")
-				s.authRedirect(logger, w, r, p)
+				s.authRedirect(logger, w, r, p, "")
 			} else {
 				logger.WithField("error", err).Warn("Invalid cookie")
 				http.Error(w, "Not authorized", http.StatusUnauthorized)
@@ -205,6 +208,64 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 	}
 }
 
+// GetUserInfoHandler Handles auth callback request
+func (s *Server) GetUserInfoHandler() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Logging setup
+		logger := s.logger(r, "GetUserInfoHandler", "default", "Handling callback")
+
+		providerName := "oidc"
+
+		// Get provider
+		p, err := config.GetConfiguredProvider(providerName)
+		if err != nil {
+			logger.WithFields(logrus.Fields{
+				"error": err,
+				// "csrf_cookie": c,
+				"provider": providerName,
+			}).Warn("Invalid provider in csrf cookie")
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
+			return
+		}
+
+		// if code is missing, redirect user to auth handler with callbackurl as
+		if r.URL.Query().Get("code") == "" {
+			redirectPath := config.Path + "/userinfo"
+			s.authRedirect(logger, w, r, p, redirectPath)
+			return
+		}
+
+		redirectURI := &url.URL{
+			Scheme: r.Header.Get("X-Forwarded-Proto"),
+			Host:   r.Host,
+			Path:   config.Path,
+		}
+
+		user, err := p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI.String())
+		if err != nil {
+			logger.Errorf("GetUserFromCode: %v", err)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
+			return
+		}
+
+		logger.Debug("User ID--------------------------------------------------->" + user.ID)
+		logger.Debug("User Email--------------------------------------------------->" + user.Email)
+		logger.Debug("User FirstName--------------------------------------------------->" + user.FirstName)
+		logger.Debug("User LastName--------------------------------------------------->" + user.LastName)
+
+		if err := json.NewEncoder(w).Encode(user); err != nil {
+			logger.Errorf("GetUserFromCode: %v", err)
+			http.Error(w, "failed to encode user information", http.StatusInternalServerError)
+			return
+		}
+
+		logger.WithFields(logrus.Fields{
+			"user_Email": user.Email,
+			"user_ID":    user.ID,
+		}).Infof("Generated auth cookie")
+	}
+}
+
 // LogoutHandler logs a user out
 func (s *Server) LogoutHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -222,7 +283,7 @@ func (s *Server) LogoutHandler() http.HandlerFunc {
 	}
 }
 
-func (s *Server) authRedirect(logger *logrus.Entry, w http.ResponseWriter, r *http.Request, p provider.Provider) {
+func (s *Server) authRedirect(logger *logrus.Entry, w http.ResponseWriter, r *http.Request, p provider.Provider, redirectPath string) {
 	// Error indicates no cookie, generate nonce
 	err, nonce := Nonce()
 	if err != nil {
@@ -243,7 +304,7 @@ func (s *Server) authRedirect(logger *logrus.Entry, w http.ResponseWriter, r *ht
 	}
 
 	// Forward them on
-	loginURL := p.GetLoginURL(redirectUri(r), MakeState(r, p, nonce))
+	loginURL := p.GetLoginURL(redirectUri(r, redirectPath), MakeState(r, p, nonce))
 	http.Redirect(w, r, loginURL, http.StatusTemporaryRedirect)
 
 	logger.WithFields(logrus.Fields{

@@ -140,13 +140,16 @@ func returnUrl(r *http.Request) string {
 }
 
 // Get oauth redirect uri
-func redirectUri(r *http.Request) string {
+func redirectUri(r *http.Request, redirectPath string) string {
+	if redirectPath == "" {
+		redirectPath = config.Path
+	}
 	if use, _ := useAuthDomain(r); use {
 		proto := r.Header.Get("X-Forwarded-Proto")
-		return fmt.Sprintf("%s://%s%s", proto, config.AuthHost, config.Path)
+		return fmt.Sprintf("%s://%s%s", proto, config.AuthHost, redirectPath)
 	}
 
-	return fmt.Sprintf("%s%s", redirectBase(r), config.Path)
+	return fmt.Sprintf("%s%s", redirectBase(r), redirectPath)
 }
 
 // Should we use auth host + what it is
