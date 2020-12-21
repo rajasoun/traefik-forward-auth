@@ -88,7 +88,6 @@ func (o *OIDC) ExchangeCode(redirectURI, code string) (string, error) {
 
 // GetUserFromCode provides user information
 func (o *OIDC) GetUserFromCode(code, redirectURI string) (User, error) {
-
 	accessToken, err := getAccessToken(o.APIAccessTokenEndpoint, code, o.ClientID, o.ClientSecret, "authorization_code", redirectURI)
 	if err != nil {
 		return User{}, err
