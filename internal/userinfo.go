@@ -3,19 +3,19 @@ package tfa
 import (
 	"encoding/json"
 	"net/http"
-	"net/url"
 	"sync"
 
 	"github.com/sirupsen/logrus"
 )
 
-var codeStore struct {
-	code map[string]string
+var accessTokenStore struct {
+	tokens map[string]string
 	sync.Mutex
 }
 
+// InitCodeStore initialiazes tge code store
 func InitCodeStore() {
-	codeStore.code = map[string]string{}
+	accessTokenStore.tokens = map[string]string{}
 }
 
 // GetUserInfoHandler Handles auth callback request
@@ -38,23 +38,15 @@ func (s *Server) GetUserInfoHandler() http.HandlerFunc {
 			return
 		}
 
-		// TODO: if code is not availible, redirect to login flow
-
-		redirectURI := &url.URL{
-			Scheme: r.Header.Get("X-Forwarded-Proto"),
-			Host:   r.Host,
-			Path:   config.Path,
-		}
-
 		cookie, err := r.Cookie(config.CookieName)
 		if err != nil {
 			logger.Errorf("get Cookie error: %v", err)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
-		code := getCode(cookie.Value)
+		accessToken := getAccessToken(cookie.Value)
 
-		user, err := p.GetUserFromCode(code, redirectURI.String())
+		user, err := p.GetUserInfo(accessToken)
 		if err != nil {
 			logger.Errorf("GetUserFromCode error: %v", err)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
@@ -79,15 +71,15 @@ func (s *Server) GetUserInfoHandler() http.HandlerFunc {
 	}
 }
 
-func saveCode(cookie string, code string) {
-	codeStore.Lock()
-	codeStore.code[cookie] = code
-	codeStore.Unlock()
+func saveAccessToken(cookie string, code string) {
+	accessTokenStore.Lock()
+	accessTokenStore.tokens[cookie] = code
+	accessTokenStore.Unlock()
 }
 
-func getCode(cookie string) string {
-	codeStore.Lock()
-	code := codeStore.code[cookie]
-	codeStore.Unlock()
+func getAccessToken(cookie string) string {
+	accessTokenStore.Lock()
+	code := accessTokenStore.tokens[cookie]
+	accessTokenStore.Unlock()
 	return code
 }

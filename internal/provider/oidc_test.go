@@ -77,7 +77,7 @@ func TestOIDC_GetUserFromCode(t *testing.T) {
 				APIResourceURI:         tt.fields.APIResourceURI,
 				APIAccessTokenEndpoint: tt.fields.APIAccessTokenEndpoint,
 			}
-			got, err := o.GetUserFromCode(tt.args.code, tt.args.redirectURI)
+			got, _, err := o.GetUserFromCode(tt.args.code, tt.args.redirectURI)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("OIDC.GetUserFromCode() error = %v, wantErr %v", err, tt.wantErr)
 				return

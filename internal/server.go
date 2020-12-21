@@ -174,7 +174,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 			Path:   config.Path,
 		}
 
-		user, err := p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI.String())
+		user, accessToken, err := p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI.String())
 		if err != nil {
 			logger.Errorf("GetUserFromCode: %v", err)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
@@ -190,7 +190,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		cookie := MakeCookie(r, user.ID)
 		http.SetCookie(w, cookie)
 
-		saveCode(cookie.Value, r.URL.Query().Get("code"))
+		saveAccessToken(cookie.Value, accessToken)
 
 		userInfoCookie, err := MakeUserCookie(r, fmt.Sprintf("%s|%s|%s", user.Email, user.FirstName, user.LastName))
 		if err != nil {

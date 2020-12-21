@@ -87,17 +87,21 @@ func (o *OIDC) ExchangeCode(redirectURI, code string) (string, error) {
 }
 
 // GetUserFromCode provides user information
-func (o *OIDC) GetUserFromCode(code, redirectURI string) (User, error) {
+func (o *OIDC) GetUserFromCode(code, redirectURI string) (User, string, error) {
 	accessToken, err := getAccessToken(o.APIAccessTokenEndpoint, code, o.ClientID, o.ClientSecret, "authorization_code", redirectURI)
 	if err != nil {
-		return User{}, err
+		return User{}, "", err
 	}
 
-	return getUserInfo(o.APIResourceURI, accessToken)
+	user, err := o.GetUserInfo(accessToken)
+	if err != nil {
+		return User{}, "", err
+	}
+
+	return user, accessToken, nil
 }
 
 func getAccessToken(APIAccessTokenEndpoint, code, clientID, clientSecret, authorizationCode, redirectURI string) (string, error) {
-
 	url := fmt.Sprintf("%s?code=%s&client_id=%s&client_secret=%s&grant_type=%s&redirect_uri=%s",
 		APIAccessTokenEndpoint, code, clientID, clientSecret, authorizationCode, redirectURI)
 	resp, err := http.Post(url, "", nil)
@@ -123,8 +127,8 @@ func getAccessToken(APIAccessTokenEndpoint, code, clientID, clientSecret, author
 	return token.AccessToken, nil
 }
 
-func getUserInfo(APIResourceURI, accessToken string) (User, error) {
-	req, err := http.NewRequest("GET", APIResourceURI, nil)
+func (o *OIDC) GetUserInfo(accessToken string) (User, error) {
+	req, err := http.NewRequest("GET", o.APIResourceURI, nil)
 	if err != nil {
 		return User{}, fmt.Errorf("resource endpoint get request: %w", err)
 	}
