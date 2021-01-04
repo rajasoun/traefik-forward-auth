@@ -1,7 +1,6 @@
 package tfa
 
 import (
-	"fmt"
 	"net/http"
 	"net/url"
 
@@ -191,14 +190,6 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 		http.SetCookie(w, cookie)
 
 		saveAccessToken(cookie.Value, accessToken)
-
-		userInfoCookie, err := MakeUserCookie(r, fmt.Sprintf("%s|%s|%s", user.Email, user.FirstName, user.LastName))
-		if err != nil {
-			logger.Errorf("MakeUserCookie: %v", err)
-			http.Error(w, "Not authorized", http.StatusInternalServerError)
-			return
-		}
-		http.SetCookie(w, userInfoCookie)
 
 		logger.WithFields(logrus.Fields{
 			"user_Email": user.Email,

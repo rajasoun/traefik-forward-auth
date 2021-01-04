@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/securecookie"
 	"github.com/rajasoun/traefik-forward-auth/internal/provider"
 )
 
@@ -185,33 +184,6 @@ func MakeCookie(r *http.Request, email string) *http.Cookie {
 		Secure:   !config.InsecureCookie,
 		Expires:  expires,
 	}
-}
-
-//
-// MakeUserCookie create's an UserInfo cookie
-func MakeUserCookie(r *http.Request, userInfo string) (*http.Cookie, error) {
-	var hashKey = []byte(config.CookieHashKey)
-	var blockKey = []byte(config.CookieBlockKey)
-	var s = securecookie.New(hashKey, blockKey)
-
-	expires := cookieExpiry()
-	mac := cookieSignature(r, userInfo, fmt.Sprintf("%d", expires.Unix()))
-	value := fmt.Sprintf("%s|%d|%s", mac, expires.Unix(), userInfo)
-
-	encoded, err := s.Encode(config.UserInfoCookie, value)
-	if err != nil {
-		return nil, err
-	}
-
-	return &http.Cookie{
-		Name:     config.UserInfoCookie,
-		Value:    encoded,
-		Path:     "/",
-		Domain:   cookieDomain(r),
-		HttpOnly: true,
-		Secure:   !config.InsecureCookie,
-		Expires:  expires,
-	}, nil
 }
 
 // ClearCookie clears the auth cookie
