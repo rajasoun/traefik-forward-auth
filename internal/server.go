@@ -45,7 +45,7 @@ func (s *Server) buildRoutes() {
 	// Add logout handler
 	s.router.Handle(config.Path+"/logout", s.LogoutHandler())
 
-	s.router.Handle(config.Path+"/userinfo", s.GetUserInfoHandler())
+	s.router.Handle("/api/v1/user", s.GetUserInfoHandler())
 
 	// Add a default handler
 	if config.DefaultAction == "allow" {

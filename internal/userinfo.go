@@ -53,10 +53,7 @@ func (s *Server) GetUserInfoHandler() http.HandlerFunc {
 			return
 		}
 
-		logger.Debug("User ID--------------------------------------------------->" + user.ID)
-		logger.Debug("User Email--------------------------------------------------->" + user.Email)
-		logger.Debug("User FirstName--------------------------------------------------->" + user.FirstName)
-		logger.Debug("User LastName--------------------------------------------------->" + user.LastName)
+		logger.Debugf("User : %+v",user)
 
 		if err := json.NewEncoder(w).Encode(user); err != nil {
 			logger.Errorf("GetUserFromCode: %v", err)
