@@ -1,13 +1,18 @@
 package tfa
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/containous/traefik/v2/pkg/rules"
 	"github.com/rajasoun/traefik-forward-auth/internal/provider"
 	"github.com/sirupsen/logrus"
 )
+
+// UserInfoURL is users inforamtion URL
+const UserInfoURL = "/api/v1/users"
 
 // Server contains router and handler methods
 type Server struct {
@@ -44,7 +49,8 @@ func (s *Server) buildRoutes() {
 	// Add logout handler
 	s.router.Handle(config.Path+"/logout", s.LogoutHandler())
 
-	s.router.Handle("/api/v1/user", s.GetUserInfoHandler())
+	// Add UserInfoURL handler
+	s.router.Handle(UserInfoURL, s.GetUserInfoHandler())
 
 	// Add a default handler
 	if config.DefaultAction == "allow" {
@@ -117,6 +123,23 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 	}
 }
 
+// GetUserInfoHandler Handles auth callback request
+func (s *Server) GetUserInfoHandler() http.HandlerFunc {
+	p, _ := config.GetConfiguredProvider("oidc")
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Logging setup
+		logger := s.logger(r, "GetUserInfoHandler", "default", "Userinfo handler")
+
+		// If don't have code then redirect
+		if r.URL.Query().Get("code") == "" {
+			//s.authRedirect(logger, w, r, p, UserInfoURL)
+			s.authRedirect(logger, w, r, p, "")
+			return
+		}
+	}
+}
+
 // AuthCallbackHandler Handles auth callback request
 func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -173,28 +196,26 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 			Path:   config.Path,
 		}
 
-		user, accessToken, err := p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI.String())
+		user, _, err := p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI.String())
 		if err != nil {
 			logger.Errorf("GetUserFromCode: %v", err)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
-		logger.Debug("User ID--------------------------------------------------->" + user.ID)
-		logger.Debug("User Email--------------------------------------------------->" + user.Email)
-		logger.Debug("User FirstName--------------------------------------------------->" + user.FirstName)
-		logger.Debug("User LastName--------------------------------------------------->" + user.LastName)
-		// Generate cookie
-		// http.SetCookie(w, MakeCookie(r, user.Email))
 		cookie := MakeCookie(r, user.ID)
 		http.SetCookie(w, cookie)
-
-		saveAccessToken(cookie.Value, accessToken)
 
 		logger.WithFields(logrus.Fields{
 			"user_Email": user.Email,
 			"user_ID":    user.ID,
 		}).Infof("Generated auth cookie")
+
+		if strings.Contains(redirect, UserInfoURL) {
+			baseURL, _ := url.Parse(redirect)
+			redirect = fmt.Sprintf("%s://%s", baseURL.Scheme, baseURL.Host)
+			logger.Debug("Redirect URL: " + redirect)
+		}
 
 		// Redirect
 		http.Redirect(w, r, redirect, http.StatusTemporaryRedirect)

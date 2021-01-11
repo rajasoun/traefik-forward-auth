@@ -17,9 +17,6 @@ func main() {
 	// Perform config validation
 	config.Validate()
 
-	// initialize the code store
-	internal.InitCodeStore()
-
 	// Build server
 	server := internal.NewServer()
 
