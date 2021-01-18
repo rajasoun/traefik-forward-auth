@@ -47,7 +47,7 @@ func (s *Server) buildRoutes() {
 	s.router.Handle(config.Path, s.AuthCallbackHandler())
 
 	// Add logout handler
-	s.router.Handle(config.Path+"/logout", s.LogoutHandler())
+	s.router.Handle("/logout", s.LogoutHandler())
 
 	// Add UserInfoURL handler
 	s.router.Handle(UserInfoURL, s.GetUserInfoHandler())
@@ -196,20 +196,18 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 			Path:   config.Path,
 		}
 
-		user, _, err := p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI.String())
+		_, _, err = p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI.String())
 		if err != nil {
 			logger.Errorf("GetUserFromCode: %v", err)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
-		cookie := MakeCookie(r, user.ID)
+		//NOTE: Avoiding PII (userID) inside the cookie.
+		cookie := MakeCookie(r, "")
 		http.SetCookie(w, cookie)
 
-		logger.WithFields(logrus.Fields{
-			"user_Email": user.Email,
-			"user_ID":    user.ID,
-		}).Infof("Generated auth cookie")
+		logger.Infof("Generated auth cookie")
 
 		if strings.Contains(redirect, UserInfoURL) {
 			baseURL, _ := url.Parse(redirect)
@@ -234,7 +232,7 @@ func (s *Server) LogoutHandler() http.HandlerFunc {
 		if config.LogoutRedirect != "" {
 			http.Redirect(w, r, config.LogoutRedirect, http.StatusTemporaryRedirect)
 		} else {
-			http.Error(w, "You have been logged out", 401)
+			http.Error(w, "Service unavailable", 503)
 		}
 	}
 }
