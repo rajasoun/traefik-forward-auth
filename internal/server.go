@@ -11,9 +11,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// UserInfoURL is users inforamtion URL
-const UserInfoURL = "/api/v1/users"
-
 // Server contains router and handler methods
 type Server struct {
 	router *rules.Router
@@ -49,8 +46,8 @@ func (s *Server) buildRoutes() {
 	// Add logout handler
 	s.router.Handle("/logout", s.LogoutHandler())
 
-	// Add UserInfoURL handler
-	s.router.Handle(UserInfoURL, s.GetUserInfoHandler())
+	// Add config.UserInfoURL handler
+	s.router.Handle(config.UserInfoURL, s.GetUserInfoHandler())
 
 	// Add a default handler
 	if config.DefaultAction == "allow" {
@@ -76,7 +73,7 @@ func (s *Server) RootHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) AllowHandler(rule string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s.logger(r, "Allow", rule, "Allowing request")
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
@@ -119,7 +116,7 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 		// Valid request
 		logger.Debug("Allowing valid request")
 		w.Header().Set("X-Forwarded-User", email)
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
@@ -133,7 +130,6 @@ func (s *Server) GetUserInfoHandler() http.HandlerFunc {
 
 		// If don't have code then redirect
 		if r.URL.Query().Get("code") == "" {
-			//s.authRedirect(logger, w, r, p, UserInfoURL)
 			s.authRedirect(logger, w, r, p, "")
 			return
 		}
@@ -152,7 +148,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 			logger.WithFields(logrus.Fields{
 				"error": err,
 			}).Warn("Error validating state")
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -209,7 +205,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 
 		logger.Infof("Generated auth cookie")
 
-		if strings.Contains(redirect, UserInfoURL) {
+		if strings.Contains(redirect, config.UserInfoURL) {
 			baseURL, _ := url.Parse(redirect)
 			redirect = fmt.Sprintf("%s://%s", baseURL.Scheme, baseURL.Host)
 			logger.Debug("Redirect URL: " + redirect)
@@ -232,7 +228,7 @@ func (s *Server) LogoutHandler() http.HandlerFunc {
 		if config.LogoutRedirect != "" {
 			http.Redirect(w, r, config.LogoutRedirect, http.StatusTemporaryRedirect)
 		} else {
-			http.Error(w, "Service unavailable", 503)
+			http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
 		}
 	}
 }
@@ -242,7 +238,7 @@ func (s *Server) authRedirect(logger *logrus.Entry, w http.ResponseWriter, r *ht
 	err, nonce := Nonce()
 	if err != nil {
 		logger.WithField("error", err).Error("Error generating nonce")
-		http.Error(w, "Service unavailable", 503)
+		http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
