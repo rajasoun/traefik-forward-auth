@@ -24,6 +24,7 @@ Application Options:
   --lifetime=                                           Lifetime in seconds (default: 43200) [$LIFETIME]
   --logout-redirect=                                    URL to redirect to following logout [$LOGOUT_REDIRECT]
   --url-path=                                           Callback URL Path (default: /_oauth) [$URL_PATH]
+  --userinfo-url-path=                                  URL to fetch userinfo on demand (default: /api/v1/users) [$USERINFO_URL_PATH]
   --secret=                                             Secret used for signing (required) [$SECRET]
   --whitelist=                                          Only allow given email addresses, can be set multiple times [$WHITELIST]
   --rule.<name>.<param>=                                Rule definitions, param can be: "action", "rule" or "provider"
@@ -35,12 +36,6 @@ OIDC Provider:
   --providers.oidc.resource-uri=                        Optional resource indicator [$PROVIDERS_OIDC_API_RESOURCE_URI]
   --providers.oidc.token-endpoint=                      Optional resource indicator [$PROVIDERS_OIDC_API_ACCESS_TOKEN_ENDPOINT]
   --providers.oidc.resource=                            Optional resource indicator [$PROVIDERS_OIDC_RESOURCE]
-
-Secret Manager:
-  --secret-mgr-access-key=                              AWS Secret Manager Access Key [$AWS_ACCESS_KEY_ID]
-  --secret-mgr-secret-key=                              AWS Secret Manager Secret Key [$AWS_SECRET_ACCESS_KEY]
-  --secret-mgr-region=                                  AWS Secret Manager Region [$REGION]
-  --secret-mgr-secret-name=                             AWS Secret Manager Secret Name [$SECRET_MGR_SECRET_NAME]
 
 Help Options:
   -h, --help                                            Show this help message

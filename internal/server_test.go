@@ -232,7 +232,7 @@ func TestServer_authRedirect(t *testing.T) {
 				router: tt.fields.router,
 			}
 			config = tt.fields.config
-			s.authRedirect(tt.args.logger, tt.args.w, tt.args.r, tt.args.p)
+			s.authRedirect(tt.args.logger, tt.args.w, tt.args.r, tt.args.p, "")
 		})
 	}
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/containous/traefik/v2/pkg/rules"
 	"github.com/rajasoun/traefik-forward-auth/internal/provider"
@@ -43,7 +44,10 @@ func (s *Server) buildRoutes() {
 	s.router.Handle(config.Path, s.AuthCallbackHandler())
 
 	// Add logout handler
-	s.router.Handle(config.Path+"/logout", s.LogoutHandler())
+	s.router.Handle("/logout", s.LogoutHandler())
+
+	// Add config.UserInfoURL handler
+	s.router.Handle(config.UserInfoURL, s.GetUserInfoHandler())
 
 	// Add a default handler
 	if config.DefaultAction == "allow" {
@@ -69,7 +73,7 @@ func (s *Server) RootHandler(w http.ResponseWriter, r *http.Request) {
 func (s *Server) AllowHandler(rule string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		s.logger(r, "Allow", rule, "Allowing request")
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
@@ -84,7 +88,7 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 		// Get auth cookie
 		c, err := r.Cookie(config.CookieName)
 		if err != nil {
-			s.authRedirect(logger, w, r, p)
+			s.authRedirect(logger, w, r, p, "")
 			return
 		}
 
@@ -93,7 +97,7 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 		if err != nil {
 			if err.Error() == "Cookie has expired" {
 				logger.Info("Cookie has expired")
-				s.authRedirect(logger, w, r, p)
+				s.authRedirect(logger, w, r, p, "")
 			} else {
 				logger.WithField("error", err).Warn("Invalid cookie")
 				http.Error(w, "Not authorized", http.StatusUnauthorized)
@@ -112,7 +116,23 @@ func (s *Server) AuthHandler(providerName, rule string) http.HandlerFunc {
 		// Valid request
 		logger.Debug("Allowing valid request")
 		w.Header().Set("X-Forwarded-User", email)
-		w.WriteHeader(200)
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+// GetUserInfoHandler Handles auth callback request
+func (s *Server) GetUserInfoHandler() http.HandlerFunc {
+	p, _ := config.GetConfiguredProvider("oidc")
+
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Logging setup
+		logger := s.logger(r, "GetUserInfoHandler", "default", "Userinfo handler")
+
+		// If don't have code then redirect
+		if r.URL.Query().Get("code") == "" {
+			s.authRedirect(logger, w, r, p, "")
+			return
+		}
 	}
 }
 
@@ -128,7 +148,7 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 			logger.WithFields(logrus.Fields{
 				"error": err,
 			}).Warn("Error validating state")
-			http.Error(w, "Not authorized", 401)
+			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
@@ -172,33 +192,24 @@ func (s *Server) AuthCallbackHandler() http.HandlerFunc {
 			Path:   config.Path,
 		}
 
-		user, err := p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI.String())
+		_, _, err = p.GetUserFromCode(r.URL.Query().Get("code"), redirectURI.String())
 		if err != nil {
 			logger.Errorf("GetUserFromCode: %v", err)
 			http.Error(w, "Not authorized", http.StatusUnauthorized)
 			return
 		}
 
-		logger.Debug("User ID--------------------------------------------------->" + user.ID)
-		logger.Debug("User Email--------------------------------------------------->" + user.Email)
-		logger.Debug("User FirstName--------------------------------------------------->" + user.FirstName)
-		logger.Debug("User LastName--------------------------------------------------->" + user.LastName)
-		// Generate cookie
-		http.SetCookie(w, MakeCookie(r, user.Email))
-		http.SetCookie(w, MakeCookie(r, user.ID))
-
-		cookie, err := MakeUserCookie(r, fmt.Sprintf("%s|%s|%s", user.Email, user.FirstName, user.LastName))
-		if err != nil {
-			logger.Errorf("MakeUserCookie: %v", err)
-			http.Error(w, "Not authorized", http.StatusInternalServerError)
-			return
-		}
+		//NOTE: Avoiding PII (userID) inside the cookie.
+		cookie := MakeCookie(r, "")
 		http.SetCookie(w, cookie)
 
-		logger.WithFields(logrus.Fields{
-			"user_Email": user.Email,
-			"user_ID":    user.ID,
-		}).Infof("Generated auth cookie")
+		logger.Infof("Generated auth cookie")
+
+		if strings.Contains(redirect, config.UserInfoURL) {
+			baseURL, _ := url.Parse(redirect)
+			redirect = fmt.Sprintf("%s://%s", baseURL.Scheme, baseURL.Host)
+			logger.Debug("Redirect URL: " + redirect)
+		}
 
 		// Redirect
 		http.Redirect(w, r, redirect, http.StatusTemporaryRedirect)
@@ -217,17 +228,17 @@ func (s *Server) LogoutHandler() http.HandlerFunc {
 		if config.LogoutRedirect != "" {
 			http.Redirect(w, r, config.LogoutRedirect, http.StatusTemporaryRedirect)
 		} else {
-			http.Error(w, "You have been logged out", 401)
+			http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
 		}
 	}
 }
 
-func (s *Server) authRedirect(logger *logrus.Entry, w http.ResponseWriter, r *http.Request, p provider.Provider) {
+func (s *Server) authRedirect(logger *logrus.Entry, w http.ResponseWriter, r *http.Request, p provider.Provider, redirectPath string) {
 	// Error indicates no cookie, generate nonce
 	err, nonce := Nonce()
 	if err != nil {
 		logger.WithField("error", err).Error("Error generating nonce")
-		http.Error(w, "Service unavailable", 503)
+		http.Error(w, "Service unavailable", http.StatusServiceUnavailable)
 		return
 	}
 
@@ -243,7 +254,7 @@ func (s *Server) authRedirect(logger *logrus.Entry, w http.ResponseWriter, r *ht
 	}
 
 	// Forward them on
-	loginURL := p.GetLoginURL(redirectUri(r), MakeState(r, p, nonce))
+	loginURL := p.GetLoginURL(redirectUri(r, redirectPath), MakeState(r, p, nonce))
 	http.Redirect(w, r, loginURL, http.StatusTemporaryRedirect)
 
 	logger.WithFields(logrus.Fields{

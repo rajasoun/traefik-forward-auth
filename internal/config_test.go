@@ -137,8 +137,7 @@ func TestNewConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			secMgr := mockSecretsMgr{}
-			got, err := NewConfig(tt.args.args, secMgr)
+			got, err := NewConfig(tt.args.args)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewConfig() error = %v, wantErr %v", err, tt.wantErr)
 				return

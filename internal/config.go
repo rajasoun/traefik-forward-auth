@@ -38,29 +38,22 @@ type Config struct {
 	LogoutRedirect         string               `long:"logout-redirect" env:"LOGOUT_REDIRECT" description:"URL to redirect to following logout"`
 	MatchWhitelistOrDomain bool                 `long:"match-whitelist-or-domain" env:"MATCH_WHITELIST_OR_DOMAIN" description:"Allow users that match *either* whitelist or domain (enabled by default in v3)"`
 	Path                   string               `long:"url-path" env:"URL_PATH" default:"/_oauth" description:"Callback URL Path"`
+	UserInfoURL            string               `long:"userinfo-url-path" env:"USERINFO_URL_PATH" default:"/api/v1/users" description:"URL to fetch userinfo on demand"`
 	SecretString           string               `long:"secret" env:"SECRET" description:"Secret used for signing (required)" json:"-"`
 	Whitelist              CommaSeparatedList   `long:"whitelist" env:"WHITELIST" env-delim:"," description:"Only allow given email addresses, can be set multiple times"`
 
 	Providers provider.Providers `group:"providers" namespace:"providers" env-namespace:"PROVIDERS"`
 	Rules     map[string]*Rule   `long:"rule.<name>.<param>" description:"Rule definitions, param can be: \"action\", \"rule\" or \"provider\""`
 
-	SecretMgrAccessKey  string `long:"secret-mgr-access-key" env:"AWS_ACCESS_KEY_ID" env-delim:"," description:"AWS Secret Manager Access Key"`
-	SecretMgrSecretKey  string `long:"secret-mgr-secret-key" env:"AWS_SECRET_ACCESS_KEY" env-delim:"," description:"AWS Secret Manager Secret Key"`
-	SecretMgrRegion     string `long:"secret-mgr-region" env:"REGION" env-delim:"," description:"AWS Secret Manager Region"`
-	SecretMgrSecretName string `long:"secret-mgr-secret-name" env:"SECRET_MGR_SECRET_NAME" env-delim:"," description:"AWS Secret Manager: secret name"`
-
 	// Filled during transformations
-	Secret         []byte `json:"-"`
-	Lifetime       time.Duration
-	CookieHashKey  string
-	CookieBlockKey string
+	Secret   []byte `json:"-"`
+	Lifetime time.Duration
 }
 
 // NewGlobalConfig creates a new global config, parsed from command arguments
 func NewGlobalConfig() *Config {
 	var err error
-	var sec secretsMgr
-	config, err = NewConfig(os.Args[1:], sec)
+	config, err = NewConfig(os.Args[1:])
 	if err != nil {
 		fmt.Printf("%+v\n", err)
 		os.Exit(1)
@@ -72,7 +65,7 @@ func NewGlobalConfig() *Config {
 // TODO: move config parsing into new func "NewParsedConfig"
 
 // NewConfig parses and validates provided configuration into a config object
-func NewConfig(args []string, sec SecretsMgr) (*Config, error) {
+func NewConfig(args []string) (*Config, error) {
 	c := &Config{
 		Rules: map[string]*Rule{},
 	}
@@ -100,16 +93,6 @@ func NewConfig(args []string, sec SecretsMgr) (*Config, error) {
 	}
 	c.Secret = []byte(c.SecretString)
 	c.Lifetime = time.Second * time.Duration(c.LifetimeString)
-
-	svc, err := sec.getAwsSession(c.SecretMgrAccessKey, c.SecretMgrSecretKey, c.SecretMgrRegion)
-	if err != nil {
-		return nil, err
-	}
-
-	c.CookieHashKey, c.CookieBlockKey, err = sec.getSecret(svc, c.SecretMgrSecretName)
-	if err != nil {
-		return nil, err
-	}
 
 	return c, nil
 }

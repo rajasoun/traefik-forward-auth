@@ -18,7 +18,8 @@ type Provider interface {
 	GetLoginURL(redirectURI, state string) string
 	ExchangeCode(redirectURI, code string) (string, error)
 	GetUser(token string) (User, error)
-	GetUserFromCode(code, redirectURI string) (User, error)
+	GetUserFromCode(code, redirectURI string) (User, string, error)
+	GetUserInfo(accessToken string) (User, error)
 	Setup() error
 }
 
